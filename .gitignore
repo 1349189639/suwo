@@ -1,0 +1,14 @@
+﻿node_modules/
+dist/
+.DS_Store
+*.log
+.google/
+.tmp/
+# Android 构建产物（源码保留）
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+# 本地工具链
+../.build/

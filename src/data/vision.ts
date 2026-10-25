@@ -1,0 +1,207 @@
+import type { MacroSet } from '../domain/types'
+
+export interface VisionItem extends MacroSet {
+  name: string
+  grams: number
+  /** 模型自评的把握程度，仅用于提示 */
+  confidence?: number
+}
+
+export interface VisionConfig {
+  baseUrl: string
+  apiKey: string
+  model: string
+}
+
+const KEY = 'fitpal:vision'
+
+export const VISION_PRESETS: { label: string; baseUrl: string; model: string; note?: string }[] = [
+  {
+    label: 'DeepSeek（deepseek-flash）',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-flash',
+    note: '有图的模型，直接用自己的 key',
+  },
+  { label: '智谱 GLM-4V', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4v-flash', note: '有免费额度' },
+  { label: '阿里百炼（通义）', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-vl-max' },
+  { label: '火山方舟（豆包）', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-vision-pro-32k' },
+  { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+]
+
+/** 拍照后先压到 1024px，省流量也省钱（DeepSeek 单图最多按 1024 token 计） */
+export async function shrinkImage(dataUrl: string, maxSide = 1024, quality = 0.82): Promise<string> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('load failed'))
+      i.src = dataUrl
+    })
+    const longest = Math.max(img.width, img.height)
+    if (longest <= maxSide) return dataUrl
+    const scale = maxSide / longest
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(img.width * scale)
+    canvas.height = Math.round(img.height * scale)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return dataUrl
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', quality)
+  } catch {
+    return dataUrl
+  }
+}
+
+/** 默认就是 DeepSeek 的视觉模型，用户只需要填 Key */
+export const DEFAULT_VISION: VisionConfig = {
+  baseUrl: 'https://api.deepseek.com',
+  apiKey: '',
+  model: 'deepseek-flash',
+}
+
+export function loadVisionConfig(): VisionConfig {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return { ...DEFAULT_VISION }
+    const p = JSON.parse(raw) as Partial<VisionConfig>
+    return {
+      baseUrl: typeof p.baseUrl === 'string' && p.baseUrl ? p.baseUrl : DEFAULT_VISION.baseUrl,
+      apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
+      model: typeof p.model === 'string' && p.model ? p.model : DEFAULT_VISION.model,
+    }
+  } catch {
+    return { ...DEFAULT_VISION }
+  }
+}
+
+export function saveVisionConfig(c: VisionConfig): void {
+  localStorage.setItem(KEY, JSON.stringify(c))
+}
+
+export function hasVisionConfig(): boolean {
+  const c = loadVisionConfig()
+  return Boolean(c.baseUrl && c.apiKey && c.model)
+}
+
+const PROMPT = `你是中国营养师。请识别这张照片里所有能吃的东西（包括主食、菜、饮料、零食），逐项估算重量并给出营养。
+
+要求：
+1. 只输出 JSON，不要解释、不要 markdown 代码块。
+2. 格式：{"items":[{"name":"米饭","grams":150,"kcal":174,"protein":3.9,"carbs":38.9,"fat":0.5,"confidence":0.8}]}
+3. grams 是中国家庭常见份量的估计值；kcal 是这一份的总热量，protein/carbs/fat 是这一份的克数。
+4. 混合菜（如宫保鸡丁）按整份估算，拆到主要食材没有意义。
+5. 认不出来或照片里没有食物时输出 {"items":[]}。
+6. confidence 用 0–1 表示你对份量估计的把握。`
+
+function stripFence(s: string): string {
+  return s
+    .replace(/^\s*```(?:json)?/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+}
+
+function num(v: unknown): number {
+  const n = typeof v === 'string' ? Number(v) : v
+  return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n * 10) / 10) : 0
+}
+
+export class VisionError extends Error {}
+
+function parseItems(text: string): VisionItem[] {
+  let parsed: { items?: unknown }
+  try {
+    parsed = JSON.parse(stripFence(text)) as { items?: unknown }
+  } catch {
+    throw new VisionError('返回的不是标准 JSON，可能模型没按格式输出，重试一次试试')
+  }
+  const raw = Array.isArray(parsed.items) ? parsed.items : []
+  return raw
+    .map((it) => {
+      const o = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>
+      return {
+        name: typeof o.name === 'string' ? o.name.trim() : '',
+        grams: num(o.grams),
+        kcal: num(o.kcal),
+        p: num(o.protein),
+        c: num(o.carbs),
+        f: num(o.fat),
+        confidence: typeof o.confidence === 'number' ? o.confidence : undefined,
+      }
+    })
+    .filter((it) => it.name !== '' && it.kcal > 0)
+}
+
+async function chat(messages: unknown[]): Promise<string> {
+  const cfg = loadVisionConfig()
+  if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) {
+    throw new VisionError('还没配置识别服务，去「我的 → AI 识图」填一下')
+  }
+  const url = `${cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({ model: cfg.model, temperature: 0.1, messages }),
+    })
+  } catch {
+    throw new VisionError('连不上识别服务。可能是网络问题，或服务商不允许浏览器直连（CORS）')
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new VisionError(`识别服务返回 ${res.status}：${body.slice(0, 120)}`)
+  }
+  const json = (await res.json()) as {
+    choices?: { message?: { content?: string | { type: string; text?: string }[] } }[]
+  }
+  const content = json.choices?.[0]?.message?.content
+  const out =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content.map((c) => c.text ?? '').join('')
+        : ''
+  if (!out) throw new VisionError('识别服务没有返回内容')
+  return out
+}
+
+/** 调用 OpenAI 兼容的视觉接口识别一张照片 */
+export async function recognizeImage(dataUrl: string): Promise<VisionItem[]> {
+  const image = await shrinkImage(dataUrl)
+  const text = await chat([
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: PROMPT },
+        { type: 'image_url', image_url: { url: image } },
+      ],
+    },
+  ])
+  return parseItems(text)
+}
+
+const RECALC_PROMPT = `你是中国营养师。下面是用户确认/修改过的食物和重量（单位克），请按中国食物成分表重新计算每一项的营养。
+
+只输出 JSON，不要解释、不要 markdown：
+{"items":[{"name":"牛肉（瘦）","grams":120,"kcal":300,"protein":31.2,"carbs":0,"fat":18}]}
+
+要求：
+1. name 用规范叫法（用户写「牛肉」就输出「牛肉（瘦）」）。
+2. grams 原样返回，不要改重量。
+3. kcal 是这一份的总热量，protein/carbs/fat 是这一份的克数。
+4. 项目数量与顺序必须和输入完全一致。`
+
+/** 用户手改了菜名/克数后，让模型按新内容重算营养 */
+export async function recalcItems(list: { name: string; grams: number }[]): Promise<VisionItem[]> {
+  if (list.length === 0) return []
+  const text = await chat([
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: RECALC_PROMPT },
+        { type: 'text', text: JSON.stringify({ items: list }) },
+      ],
+    },
+  ])
+  return parseItems(text)
+}

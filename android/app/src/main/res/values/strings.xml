@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">塑我</string>
+    <string name="title_activity_main">塑我</string>
+    <string name="package_name">app.suwo.fit</string>
+    <string name="custom_url_scheme">app.suwo.fit</string>
+</resources>

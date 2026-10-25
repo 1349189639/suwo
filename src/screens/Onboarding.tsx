@@ -61,7 +61,7 @@ export function Onboarding() {
       : step === 1
         ? true
         : goalType === 'maintain' ||
-          (targetWeight >= 35 && targetWeight <= 250 && Math.abs(targetWeight - weight) >= 0.5)
+          (targetWeight >= 35 && targetWeight <= 250 && Math.abs(targetWeight - weight) >= 0.1)
 
   const finishSetup = () => {
     saveProfile(profile, weight)
@@ -263,7 +263,7 @@ export function Onboarding() {
             else finishSetup()
           }}
         >
-          {step < 2 ? '继续' : '开始记录'}
+          {step < 2 ? '继续' : !canNext ? '目标体重不能和当前体重一样' : '开始记录'}
         </Button>
       </div>
     </div>

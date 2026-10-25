@@ -34,6 +34,7 @@ interface Store {
   logWeight: (kg: number, date?: string) => void
   addFoodLog: (log: Omit<FoodLog, 'id' | 'createdAt'>) => void
   removeFoodLog: (id: string) => void
+  updateFoodLog: (id: string, patch: Partial<FoodLog>) => void
   addExercise: (log: Omit<ExerciseLog, 'id' | 'createdAt'>) => void
   removeExercise: (id: string) => void
   setSteps: (steps: number, date?: string) => void
@@ -81,6 +82,12 @@ export const useStore = create<Store>((set, get) => {
     addFoodLog: (log) => {
       const data = { ...get().data }
       data.foodLogs = [...data.foodLogs, { ...log, id: nextId('f'), createdAt: Date.now() }]
+      commit(data)
+    },
+
+    updateFoodLog: (id, patch) => {
+      const data = { ...get().data }
+      data.foodLogs = data.foodLogs.map((l) => (l.id === id ? { ...l, ...patch } : l))
       commit(data)
     },
 

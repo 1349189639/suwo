@@ -14,6 +14,7 @@ import {
   MEAL_ORDER,
   type FoodCategory,
   type FoodItem,
+  type FoodLog,
   type Meal,
 } from '../domain/types'
 
@@ -39,6 +40,7 @@ export function FoodDiary({
   const data = useStore((s) => s.data)
   const addFoodLog = useStore((s) => s.addFoodLog)
   const removeFoodLog = useStore((s) => s.removeFoodLog)
+  const updateFoodLog = useStore((s) => s.updateFoodLog)
   const addCustomFood = useStore((s) => s.addCustomFood)
   const setToast = useStore((s) => s.setToast)
 
@@ -50,6 +52,9 @@ export function FoodDiary({
   const [grams, setGrams] = useState(100)
   const [custom, setCustom] = useState({ name: '', kcal: 0, p: 0, c: 0, f: 0 })
   const [scanning, setScanning] = useState(false)
+  const [editing, setEditing] = useState<FoodLog | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editGrams, setEditGrams] = useState(100)
   const [photo, setPhoto] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement | null>(null)
   const galleryRef = useRef<HTMLInputElement | null>(null)
@@ -394,6 +399,48 @@ export function FoodDiary({
   /* ------------------------------ 饮食日记 ------------------------------ */
   return (
     <div className="anim-rise pb-4">
+      {editing && (
+        <div className="anim-rise mb-3 space-y-2 rounded-2xl border border-accent/40 bg-surface2/60 p-3">
+          <div className="text-[12px] text-accent">修改这条记录</div>
+          <input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[14px] outline-none"
+            placeholder="食物名称"
+          />
+          <div className="flex items-center gap-2">
+            <div className="w-28">
+              <NumberField value={editGrams} onChange={setEditGrams} suffix="g" min={1} max={2000} className="px-2.5 py-1.5" />
+            </div>
+            <span className="text-[11px] text-muted/60">
+              按比例重算 ≈ {Math.round((editing.kcal / (editing.grams || 1)) * editGrams)} kcal
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="soft" className="flex-1" onClick={() => setEditing(null)}>
+              取消
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                const ratio = editGrams / (editing.grams || 1)
+                updateFoodLog(editing.id, {
+                  name: editName.trim() || editing.name,
+                  grams: editGrams,
+                  kcal: Math.round(editing.kcal * ratio),
+                  p: Math.round(editing.p * ratio * 10) / 10,
+                  c: Math.round(editing.c * ratio * 10) / 10,
+                  f: Math.round(editing.f * ratio * 10) / 10,
+                })
+                setEditing(null)
+                setToast('已修改')
+              }}
+            >
+              保存
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface2/50 p-3">
         <div className="text-center">
           <div className="tabular text-[19px] font-bold text-accent">{Math.round(day.intake.kcal)}</div>
@@ -452,10 +499,17 @@ export function FoodDiary({
               <div className="mt-2 space-y-1">
                 {m.items.map((it) => (
                   <div key={it.id} className="flex items-center justify-between py-0.5">
-                    <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => {
+                        setEditing(it)
+                        setEditName(it.name)
+                        setEditGrams(Math.round(it.grams))
+                      }}
+                      className="min-w-0 flex-1 text-left active:opacity-60"
+                    >
                       <span className="text-[13px]">{it.name}</span>
                       <span className="ml-1.5 text-[10px] text-muted/60">{Math.round(it.grams)}g</span>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       <span className="tabular text-[12px] text-muted">{it.kcal}</span>
                       <button

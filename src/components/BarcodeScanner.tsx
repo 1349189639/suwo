@@ -1,7 +1,7 @@
 import { BarcodeFormat, BrowserMultiFormatReader, DecodeHintType } from '@zxing/library'
 import { useEffect, useRef, useState } from 'react'
 import { lookupBarcode, toFoodItem, type BarcodeProduct } from '../data/barcode'
-import { Button, NumberField, TextField } from './ui'
+import { Button, TextField } from './ui'
 import type { FoodItem } from '../domain/types'
 
 /**
@@ -37,7 +37,6 @@ export function BarcodeScanner({ onPick }: { onPick: (food: FoodItem) => void })
   const [message, setMessage] = useState('')
   const [manual, setManual] = useState('')
   const [found, setFound] = useState<BarcodeProduct | null>(null)
-  const [grams, setGrams] = useState(100)
   const [live, setLive] = useState(false)
 
   const secure = typeof window !== 'undefined' && window.isSecureContext
@@ -53,7 +52,6 @@ export function BarcodeScanner({ onPick }: { onPick: (food: FoodItem) => void })
     busyRef.current = false
     if (product) {
       setFound(product)
-      setGrams(100)
       setStatus('idle')
     } else {
       setStatus('error')
@@ -151,41 +149,10 @@ export function BarcodeScanner({ onPick }: { onPick: (food: FoodItem) => void })
   }
 
   if (found) {
-    const item = toFoodItem(found)
-    const k = grams / 100
-    return (
-      <div className="anim-rise space-y-4">
-        <div className="rounded-2xl border border-accent/40 bg-accent/10 p-3.5">
-          <div className="text-[15px] font-semibold">{item.name}</div>
-          <div className="mt-0.5 text-[11px] text-muted">
-            条码 {found.code} · 每 100g {found.per100.kcal} kcal · 蛋白 {found.per100.p}g · 碳水{' '}
-            {found.per100.c}g · 脂肪 {found.per100.f}g
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-1.5 text-[13px] text-muted">吃了多少</div>
-          <NumberField value={grams} onChange={setGrams} suffix="g" min={1} max={2000} />
-        </div>
-
-        <div className="flex items-baseline justify-between rounded-2xl bg-surface2/60 px-4 py-3">
-          <span className="text-[12px] text-muted">本次摄入</span>
-          <span className="tabular text-[24px] font-bold text-accent">
-            {Math.round(found.per100.kcal * k)}
-            <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
-          </span>
-        </div>
-
-        <Button className="w-full" onClick={() => onPick(item)}>
-          加入这一餐
-        </Button>
-        <p className="text-center text-[10px] text-muted/50">
-          数据来自 Open Food Facts 公开库，仅供参考，以包装营养标签为准
-        </p>
-      </div>
-    )
+    // 直接回传，克数和餐次统一在「饮食日记」里填一次
+    onPick(toFoodItem(found))
+    return <div className="py-10 text-center text-[12px] text-muted">已识别，正在填入…</div>
   }
-
   return (
     <div className="anim-rise space-y-3">
       <div className="relative overflow-hidden rounded-2xl border border-line bg-black">

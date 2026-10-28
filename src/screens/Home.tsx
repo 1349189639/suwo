@@ -6,6 +6,8 @@ import { useStore } from '../data/store'
 import { stepsKcal } from '../domain/activity'
 import { stageInfo } from '../domain/avatar'
 import { bodyState, currentSpirit, currentStreak, summarizeDay, targetsFor } from '../domain/day'
+import { buildFromBmi } from '../domain/avatar'
+import { calcBmi } from '../domain/nutrition'
 import { formatCN, todayKey, weekdayCN } from '../domain/date'
 import { defaultLook } from '../domain/look'
 import { MEAL_LABEL } from '../domain/types'
@@ -57,18 +59,36 @@ export function Home({
   const stage = stageInfo(body?.stage ?? 3)
 
   const [talk, setTalk] = useState<string | null>(null)
+  const [previewKg, setPreviewKg] = useState<number | null>(null)
+
+  const previewBuild =
+    previewKg !== null && data.profile
+      ? buildFromBmi(calcBmi(previewKg, data.profile.heightCm))
+      : null
 
   // 原生壳里自动从系统计步器同步（只增不减，不覆盖手动修正）
   const synced = useRef(false)
   useEffect(() => {
     if (!isNativeApp || synced.current) return
     synced.current = true
-    void readNativeSteps().then((n) => {
-      if (n !== null && n > (data.steps[today] ?? 0)) {
-        setSteps(n)
-        setToast(`已从系统计步器同步 ${n.toLocaleString()} 步`)
-      }
-    })
+    const refresh = (announce: boolean) => {
+      void readNativeSteps().then((n) => {
+        if (n !== null && n > (data.steps[today] ?? 0)) {
+          setSteps(n)
+          if (announce) setToast(`已同步 ${n.toLocaleString()} 步`)
+        }
+      })
+    }
+    refresh(true)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh(false)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(() => refresh(false), 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(timer)
+    }
   }, [data.steps, setSteps, setToast, today])
   useEffect(() => {
     if (!talk) return
@@ -174,7 +194,7 @@ export function Home({
           aria-label="和小人互动"
         >
           <Avatar
-            build={body?.build ?? 0.4}
+            build={previewBuild ?? body?.build ?? 0.4}
             muscle={body?.muscle ?? 0.6}
             gender={data.profile?.gender ?? 'male'}
             spirit={spirit}
@@ -207,6 +227,28 @@ export function Home({
             </span>
           )}
         </div>
+      </div>
+
+      {/* 体型试穿：拖动看不同体重下的样子（不保存） */}
+      <div className="mt-2 flex items-center gap-2 rounded-2xl border border-line/60 bg-surface/70 px-3 py-2">
+        <span className="shrink-0 text-[11px] text-muted">试穿</span>
+        <input
+          type="range"
+          min={40}
+          max={130}
+          step={0.5}
+          value={previewKg ?? body?.weight ?? 70}
+          onChange={(e) => setPreviewKg(Number(e.target.value))}
+          className="w-full accent-[#3ddc97]"
+        />
+        <span className="tabular w-14 shrink-0 text-right text-[11px] text-accent">
+          {previewKg !== null ? `${previewKg}kg` : `${body?.weight ?? 70}kg`}
+        </span>
+        {previewKg !== null && (
+          <button onClick={() => setPreviewKg(null)} className="shrink-0 text-[10px] text-muted">
+            重置
+          </button>
+        )}
       </div>
 
       {/* 今日额度 */}

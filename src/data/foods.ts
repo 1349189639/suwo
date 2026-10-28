@@ -25,6 +25,21 @@ function food(
   }
 }
 
+const FIBER_BY_CATEGORY: Record<FoodCategory, number> = {
+  staple: 1.5,
+  protein: 0,
+  seafood: 0,
+  soy: 1.0,
+  veg: 2.5,
+  fruit: 2.0,
+  dish: 1.5,
+  street: 1.5,
+  snack: 2.0,
+  drink: 0,
+  fastfood: 1.5,
+  nut: 5.0,
+}
+
 const SPECS: Spec[] = [
   /* ------------------------------ 主食 ------------------------------ */
   food('staple', '米饭', 116, 2.6, 25.9, 0.3, 150, '米 碳水 白饭', '碗'),
@@ -298,10 +313,41 @@ const SPECS: Spec[] = [
   food('drink', '果啤', 40, 0.3, 6, 0, 330, '酒精 低度', '瓶'),
 ]
 
+const WATER_BY_CATEGORY: Partial<Record<FoodCategory, number>> = {
+  fruit: 85,
+  veg: 92,
+  drink: 90,
+}
+
+const WATER_BY_NAME: [string, number][] = [
+  ['豆浆', 93],
+  ['牛奶', 89],
+  ['酸奶', 85],
+  ['粥', 90],
+  ['汤', 92],
+  ['豆腐', 85],
+  ['豆花', 92],
+  ['果汁', 88],
+  ['西瓜', 92],
+  ['冬瓜', 96],
+  ['黄瓜', 96],
+]
+
+function waterOf(f: FoodItem): number | undefined {
+  const byCat = WATER_BY_CATEGORY[f.category]
+  if (byCat) return byCat
+  const hit = WATER_BY_NAME.find(([k]) => f.name.includes(k))
+  return hit ? hit[1] : undefined
+}
+
 export const FOODS: FoodItem[] = SPECS.map((spec, i) => ({
   ...spec,
+  per100: { ...spec.per100, fiber: spec.per100.fiber ?? FIBER_BY_CATEGORY[spec.category] },
   id: `f${String(i + 1).padStart(3, '0')}`,
-}))
+})).map((f) => {
+  const w = waterOf(f)
+  return w === undefined ? f : { ...f, per100: { ...f.per100, water: w } }
+})
 
 export const ALL_FOODS = FOODS
 

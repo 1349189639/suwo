@@ -314,9 +314,20 @@ export function ProfileScreen({
           <Row label="体重记录" value={`${data.weights.length} 次`} />
           <Button
             className="mt-1 w-full"
-            onClick={() => {
-              downloadText(`塑我-记录-${todayKey()}.csv`, toCsv(data), 'text/csv;charset=utf-8')
-              setToast('已导出 CSV')
+            onClick={async () => {
+              const csv = toCsv(data)
+              const name = `塑我-记录-${todayKey()}.csv`
+              try {
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(csv)
+                  setToast('CSV 已复制到剪贴板，粘贴到微信/备忘录即可')
+                  return
+                }
+              } catch {
+                /* 落到下载 */
+              }
+              downloadText(name, csv, 'text/csv;charset=utf-8')
+              setToast('已开始下载（浏览器有效，APK 内请用复制）')
             }}
           >
             导出记录（CSV · 手机可直接打开）

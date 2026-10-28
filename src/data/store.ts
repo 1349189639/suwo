@@ -38,6 +38,7 @@ interface Store {
   addExercise: (log: Omit<ExerciseLog, 'id' | 'createdAt'>) => void
   removeExercise: (id: string) => void
   setSteps: (steps: number, date?: string) => void
+  setWater: (ml: number, date?: string) => void
   addCustomFood: (food: Omit<FoodItem, 'id'>) => void
   setAvatarAction: (action: AvatarAction) => void
   setLook: (look: Look) => void
@@ -113,6 +114,13 @@ export const useStore = create<Store>((set, get) => {
       const d = date ?? todayKey()
       const data = { ...get().data }
       data.steps = { ...data.steps, [d]: Math.max(0, Math.round(steps)) }
+      commit(data)
+    },
+
+    setWater: (ml, date) => {
+      const d = date ?? todayKey()
+      const data = { ...get().data }
+      data.water = { ...(data.water ?? {}), [d]: Math.max(0, Math.round(ml)) }
       commit(data)
     },
 

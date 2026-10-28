@@ -20,6 +20,12 @@ export interface DaySummary {
   exerciseKcal: number
   exerciseMinutes: number
   steps: number
+  /** 膳食纤维合计（克） */
+  fiber: number
+  /** 今日饮水（毫升） */
+  water: number
+  /** 今日餐饮花费（元） */
+  cost: number
   /** 今日可摄入额度 = 基础目标 + 运动额外消耗 */
   budget: number
   baseTarget: number
@@ -63,6 +69,9 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   const exerciseKcal = exercises.reduce((a, e) => a + e.kcal, 0)
   const exerciseMinutes = exercises.reduce((a, e) => a + e.minutes, 0)
   const steps = data.steps[date] ?? 0
+  const fiber = Math.round(meals.reduce((a, l) => a + (l.fiber ?? 0), 0) * 10) / 10
+  const cost = Math.round(meals.reduce((a, l) => a + (l.cost ?? 0), 0) * 100) / 100
+  const water = data.water?.[date] ?? 0
   const budget = targets.kcal + exerciseKcal
   const remaining = budget - Math.round(intake.kcal)
   const volume = exercises.reduce((a, e) => a + (e.sets ?? 0) * (e.reps ?? 0) * (e.weightKg ?? 0), 0)
@@ -80,6 +89,9 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   return {
     date,
     intake,
+    fiber,
+    water,
+    cost,
     meals,
     exercises,
     exerciseKcal,

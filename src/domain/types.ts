@@ -53,6 +53,10 @@ export interface MacroSet {
   p: number
   c: number
   f: number
+  /** 膳食纤维，克 */
+  fiber?: number
+  /** 含水量，每 100g 的克数（只对高水分食物标注） */
+  water?: number
 }
 
 export interface FoodItem {
@@ -78,6 +82,11 @@ export interface FoodLog {
   p: number
   c: number
   f: number
+  fiber?: number
+  /** 含水量（%） */
+  water?: number
+  /** 这一餐花了多少钱 */
+  cost?: number
   foodId?: string
   createdAt: number
 }
@@ -113,6 +122,8 @@ export interface AppData {
   steps: Record<string, number>
   avatarAction?: AvatarAction
   look?: Look
+  /** 每日饮水，毫升 */
+  water?: Record<string, number>
   createdAt: string
 }
 

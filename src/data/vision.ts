@@ -205,3 +205,24 @@ export async function recalcItems(list: { name: string; grams: number }[]): Prom
   ])
   return parseItems(text)
 }
+
+const ESTIMATE_PROMPT = `你是中国营养师。用户想吃/吃了「{{Q}}」，请估算它的营养。
+
+只输出 JSON，不要解释、不要 markdown：
+{"items":[{"name":"牛肉面","grams":500,"kcal":600,"protein":28,"carbs":75,"fat":18,"confidence":0.6}]}
+
+要求：
+1. 按中国常见做法和一份的量估算，grams 写估重。
+2. name 用规范叫法。
+3. 最多 3 项（比如"汉堡+可乐"可以拆成两项）。
+4. protein/carbs/fat 是这一份的克数。`
+
+/** 食物库里没有时，让 AI 估一个 */
+export async function estimateFood(query: string): Promise<VisionItem[]> {
+  const q = query.trim()
+  if (!q) return []
+  const text = await chat([
+    { role: 'user', content: [{ type: 'text', text: ESTIMATE_PROMPT.replace('{{Q}}', q) }] },
+  ])
+  return parseItems(text)
+}

@@ -4,6 +4,7 @@ import { useStore } from '../data/store'
 import { spiritLabel } from '../domain/adherence'
 import { currentSpirit, currentStreak, latestWeight, summarizeWeek, targetsFor } from '../domain/day'
 import { formatCN, lastNDates, todayKey, weekdayShort } from '../domain/date'
+import { MEAL_LABEL, MEAL_ORDER } from '../domain/types'
 import { KCAL_PER_KG, calcTdee } from '../domain/nutrition'
 
 interface Insight {
@@ -69,6 +70,42 @@ export function Stats() {
           </p>
         )}
       </Card>
+
+      {(() => {
+        const monthPrefix = todayKey().slice(0, 7)
+        const costOf = (logs: typeof data.foodLogs) => logs.reduce((a, l) => a + (l.cost ?? 0), 0)
+        const weekLogs = week.days.flatMap((d) => d.meals)
+        const monthLogs = data.foodLogs.filter((l) => l.date.startsWith(monthPrefix))
+        const byMeal = MEAL_ORDER.map((m) => ({ m, v: costOf(weekLogs.filter((l) => l.meal === m)) }))
+        return (
+          <div className="mt-4">
+            <SectionTitle right={<span className="text-[11px] text-muted/60">记账</span>}>花销</SectionTitle>
+            <Card>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-[11px] text-muted">本周</div>
+                  <div className="tabular text-[24px] font-bold text-accent">¥{costOf(weekLogs).toFixed(0)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[11px] text-muted">本月</div>
+                  <div className="tabular text-[18px] font-semibold">¥{costOf(monthLogs).toFixed(0)}</div>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {byMeal.map((x) => (
+                  <div key={x.m} className="rounded-xl bg-surface2/50 py-1.5 text-center">
+                    <div className="text-[10px] text-muted">{MEAL_LABEL[x.m]}</div>
+                    <div className="tabular text-[12px]">¥{x.v.toFixed(0)}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] leading-4 text-muted/50">
+                在饮食日记里点任意一条记录，可以填这一餐花了多少钱
+              </p>
+            </Card>
+          </div>
+        )
+      })()}
 
       <div className="mt-4">
         <SectionTitle right={<span className="text-[11px] text-muted/60">虚线 = 每日额度</span>}>

@@ -3,8 +3,9 @@ import { BarcodeScanner } from '../components/BarcodeScanner'
 import { PhotoRecognizer } from './PhotoRecognizer'
 import { Button, Card, Field, NumberField, Pill, ProgressBar, TextField } from '../components/ui'
 import { filterFoods } from '../data/foods'
+import { estimateFood } from '../data/vision'
 import { useStore } from '../data/store'
-import { todayKey } from '../domain/date'
+import { addDays, formatCN, todayKey } from '../domain/date'
 import { summarizeDay, targetsFor } from '../domain/day'
 import {
   FOOD_CATEGORY_LABEL,
@@ -42,9 +43,12 @@ export function FoodDiary({
   const removeFoodLog = useStore((s) => s.removeFoodLog)
   const updateFoodLog = useStore((s) => s.updateFoodLog)
   const addCustomFood = useStore((s) => s.addCustomFood)
+  const setWater = useStore((s) => s.setWater)
   const setToast = useStore((s) => s.setToast)
 
   const [view, setView] = useState<'diary' | 'picker'>('diary')
+  const [viewDate, setViewDate] = useState(todayKey())
+  const [aiBusy, setAiBusy] = useState(false)
   const [meal, setMeal] = useState<Meal>(defaultMeal())
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryKey>('all')
@@ -55,6 +59,7 @@ export function FoodDiary({
   const [editing, setEditing] = useState<FoodLog | null>(null)
   const [editName, setEditName] = useState('')
   const [editGrams, setEditGrams] = useState(100)
+  const [editCost, setEditCost] = useState(0)
   const [photo, setPhoto] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement | null>(null)
   const galleryRef = useRef<HTMLInputElement | null>(null)
@@ -72,17 +77,21 @@ export function FoodDiary({
     }
   }, [open])
 
-  const day = summarizeDay(data, todayKey())
+  const day = summarizeDay(data, viewDate)
   const targets = targetsFor(data)
 
   const meals = useMemo(() => {
     return MEAL_ORDER.map((m) => {
       const items = day.meals.filter((l) => l.meal === m)
+      const sum = (fn: (x: (typeof items)[number]) => number) => items.reduce((a, b) => a + fn(b), 0)
       return {
         meal: m,
         items,
-        kcal: items.reduce((a, b) => a + b.kcal, 0),
-        p: items.reduce((a, b) => a + b.p, 0),
+        kcal: Math.round(sum((x) => x.kcal)),
+        p: Math.round(sum((x) => x.p) * 10) / 10,
+        c: Math.round(sum((x) => x.c) * 10) / 10,
+        f: Math.round(sum((x) => x.f) * 10) / 10,
+        fiber: Math.round(sum((x) => x.fiber ?? 0) * 10) / 10,
       }
     })
   }, [day.meals])
@@ -115,12 +124,14 @@ export function FoodDiary({
     if (!picked) return
     const k = grams / 100
     addFoodLog({
-      date: todayKey(),
+      date: viewDate,
       meal,
       name: picked.name,
       grams,
       kcal: Math.round(picked.per100.kcal * k),
       p: Math.round(picked.per100.p * k * 10) / 10,
+      fiber: Math.round((picked.per100.fiber ?? 0) * k * 10) / 10,
+      water: picked.per100.water,
       c: Math.round(picked.per100.c * k * 10) / 10,
       f: Math.round(picked.per100.f * k * 10) / 10,
       foodId: picked.id,
@@ -142,7 +153,7 @@ export function FoodDiary({
     }
     addCustomFood(item)
     addFoodLog({
-      date: todayKey(),
+      date: viewDate,
       meal,
       name: item.name,
       grams: 100,
@@ -387,7 +398,42 @@ export function FoodDiary({
             </div>
             {results.total === 0 && (
               <div className="py-10 text-center text-[13px] text-muted/70">
-                没找到，可以切到「自定义」直接输热量
+                <div className="space-y-2">
+                  <div>没找到，可以切到「自定义」直接输热量</div>
+                  <button
+                    disabled={aiBusy || query.trim().length < 2}
+                    onClick={async () => {
+                      setAiBusy(true)
+                      try {
+                        const items = await estimateFood(query.trim())
+                        if (items.length > 0) {
+                          const it = items[0]
+                          addFoodLog({
+                            date: viewDate,
+                            meal,
+                            name: it.name,
+                            grams: Math.round(it.grams),
+                            kcal: Math.round(it.kcal),
+                            p: it.p,
+                            c: it.c,
+                            f: it.f,
+                          })
+                          setToast('AI 估了一条，已记入')
+                          setView('diary')
+                        } else {
+                          setToast('AI 也没估出来，换个说法试试')
+                        }
+                      } catch (e) {
+                        setToast(e instanceof Error ? e.message : 'AI 估算失败')
+                      } finally {
+                        setAiBusy(false)
+                      }
+                    }}
+                    className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-[12px] text-accent disabled:opacity-40"
+                  >
+                    {aiBusy ? 'AI 估算中…' : `用 AI 估算「${query.trim()}」`}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -416,6 +462,12 @@ export function FoodDiary({
               按比例重算 ≈ {Math.round((editing.kcal / (editing.grams || 1)) * editGrams)} kcal
             </span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="w-28">
+              <NumberField value={editCost} onChange={setEditCost} suffix="元" min={0} max={9999} className="px-2.5 py-1.5" />
+            </div>
+            <span className="text-[11px] text-muted/60">这一餐花了多少钱（可不填）</span>
+          </div>
           <div className="flex gap-2">
             <Button variant="soft" className="flex-1" onClick={() => setEditing(null)}>
               取消
@@ -427,6 +479,7 @@ export function FoodDiary({
                 updateFoodLog(editing.id, {
                   name: editName.trim() || editing.name,
                   grams: editGrams,
+                  cost: editCost,
                   kcal: Math.round(editing.kcal * ratio),
                   p: Math.round(editing.p * ratio * 10) / 10,
                   c: Math.round(editing.c * ratio * 10) / 10,
@@ -441,6 +494,25 @@ export function FoodDiary({
           </div>
         </div>
       )}
+      <div className="mb-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-2 py-1.5">
+        <button
+          onClick={() => setViewDate(addDays(viewDate, -1))}
+          className="rounded-lg px-2 py-1 text-[12px] text-muted active:bg-surface2"
+        >
+          ‹ 前一天
+        </button>
+        <button onClick={() => setViewDate(todayKey())} className="text-[12px] text-accent">
+          {viewDate === todayKey() ? '今天' : formatCN(viewDate)}
+        </button>
+        <button
+          onClick={() => setViewDate(addDays(viewDate, 1))}
+          disabled={viewDate >= todayKey()}
+          className="rounded-lg px-2 py-1 text-[12px] text-muted active:bg-surface2 disabled:opacity-30"
+        >
+          后一天 ›
+        </button>
+      </div>
+
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface2/50 p-3">
         <div className="text-center">
           <div className="tabular text-[19px] font-bold text-accent">{Math.round(day.intake.kcal)}</div>
@@ -465,6 +537,23 @@ export function FoodDiary({
           <span>脂肪 {Math.round(day.intake.f)} / {targets.f}g</span>
         </div>
         <ProgressBar value={day.intake.kcal} max={day.budget} color={day.remaining < 0 ? '#ff6b81' : '#3ddc97'} />
+      </div>
+
+      <div className="mt-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-3 py-2">
+        <span className="text-[12px] text-muted">当日花费</span>
+        <span className="tabular text-[15px] font-semibold text-accent">¥{(day.cost ?? 0).toFixed(1)}</span>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-3 py-2">
+        <div>
+          <div className="text-[12px] text-muted">今日饮水</div>
+          <div className="tabular text-[15px] font-semibold">{day.water} <span className="text-[10px] font-normal text-muted">ml</span></div>
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={() => setWater(day.water + 250)} className="rounded-xl bg-surface2 px-3 py-1.5 text-[12px] text-accent">+250</button>
+          <button onClick={() => setWater(day.water + 500)} className="rounded-xl bg-surface2 px-3 py-1.5 text-[12px] text-accent">+500</button>
+          <button onClick={() => setWater(0)} className="rounded-xl bg-surface2 px-3 py-1.5 text-[10px] text-muted">清零</button>
+        </div>
       </div>
 
       <div className="mt-4 space-y-3">
@@ -504,11 +593,20 @@ export function FoodDiary({
                         setEditing(it)
                         setEditName(it.name)
                         setEditGrams(Math.round(it.grams))
+                        setEditCost(it.cost ?? 0)
                       }}
                       className="min-w-0 flex-1 text-left active:opacity-60"
                     >
-                      <span className="text-[13px]">{it.name}</span>
-                      <span className="ml-1.5 text-[10px] text-muted/60">{Math.round(it.grams)}g</span>
+                      <div>
+                        <span className="text-[13px]">{it.name}</span>
+                        <span className="ml-1.5 text-[10px] text-muted/60">{Math.round(it.grams)}g</span>
+                      </div>
+                      <div className="text-[10px] text-muted/45">
+                        蛋白 {it.p.toFixed(1)} · 碳水 {it.c.toFixed(1)} · 脂肪 {it.f.toFixed(1)}
+                        {it.fiber ? ` · 纤维 ${it.fiber.toFixed(1)}` : ''}
+                        {it.water ? ` · 水 ${it.water}%` : ''}
+                        {it.cost ? ` · ¥${it.cost.toFixed(1)}` : ''}
+                      </div>
                     </button>
                     <div className="flex items-center gap-2">
                       <span className="tabular text-[12px] text-muted">{it.kcal}</span>
@@ -522,8 +620,16 @@ export function FoodDiary({
                     </div>
                   </div>
                 ))}
-                {m.p > 0 && (
-                  <div className="pt-1 text-[10px] text-muted/50">蛋白合计 {Math.round(m.p)}g</div>
+                {m.items.length > 0 && (
+                  <div className="mt-1 space-y-1 border-t border-line/40 pt-1.5">
+                    <div className="tabular flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted/60">
+                      <span>蛋白 {m.p}g</span>
+                      <span>碳水 {m.c}g</span>
+                      <span>脂肪 {m.f}g</span>
+                      <span>纤维 {m.fiber}g</span>
+                    </div>
+                    <div className="text-[10px] leading-4 text-accent/80">{mealAdvice(m)}</div>
+                  </div>
                 )}
               </div>
             )}
@@ -557,4 +663,18 @@ function FoodRow({ food, onClick }: { food: FoodItem; onClick: () => void }) {
       </div>
     </button>
   )
+}
+
+/** 每餐的规则型建议：只说最值得改的一两条 */
+function mealAdvice(m: { kcal: number; p: number; c: number; f: number; fiber: number }): string {
+  const tips: string[] = []
+  const proteinPerKcal = m.p / Math.max(m.kcal, 1)
+  if (m.p < 12) tips.push('蛋白偏少，加一份蛋/奶/豆制品')
+  if (m.fiber < 3) tips.push('纤维不足，配点蔬菜')
+  const fatShare = (m.f * 9) / Math.max(m.kcal, 1)
+  if (fatShare > 0.42) tips.push('脂肪偏高，少油少炸')
+  if (m.c > 90) tips.push('碳水偏多，主食减半试试')
+  if (proteinPerKcal > 0.12) tips.push('蛋白给得很足 👍')
+  if (tips.length === 0) return '搭配均衡，保持'
+  return tips.slice(0, 2).join(' · ')
 }

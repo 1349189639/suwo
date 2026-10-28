@@ -1,0 +1,20 @@
+﻿{
+  "name": "濉戞垜 路 鐑噺璐︽湰",
+  "short_name": "濉戞垜",
+  "description": "鎶婄儹閲忚处鏈拰铏氭嫙褰㈣薄缁撳悎鐨勪釜浜哄仴韬伐鍏?,
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0e13",
+  "theme_color": "#0a0e13",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

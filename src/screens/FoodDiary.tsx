@@ -44,6 +44,7 @@ export function FoodDiary({
   const updateFoodLog = useStore((s) => s.updateFoodLog)
   const addCustomFood = useStore((s) => s.addCustomFood)
   const setWater = useStore((s) => s.setWater)
+  const setMealCost = useStore((s) => s.setMealCost)
   const setToast = useStore((s) => s.setToast)
 
   const [view, setView] = useState<'diary' | 'picker'>('diary')
@@ -60,6 +61,8 @@ export function FoodDiary({
   const [editName, setEditName] = useState('')
   const [editGrams, setEditGrams] = useState(100)
   const [editCost, setEditCost] = useState(0)
+  const [openMeal, setOpenMeal] = useState<Meal | null>(null)
+  const [costDraft, setCostDraft] = useState(0)
   const [photo, setPhoto] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement | null>(null)
   const galleryRef = useRef<HTMLInputElement | null>(null)
@@ -92,9 +95,10 @@ export function FoodDiary({
         c: Math.round(sum((x) => x.c) * 10) / 10,
         f: Math.round(sum((x) => x.f) * 10) / 10,
         fiber: Math.round(sum((x) => x.fiber ?? 0) * 10) / 10,
+        cost: day.mealCosts[m],
       }
     })
-  }, [day.meals])
+  }, [day])
 
   const recentIds = useMemo(() => {
     const out: string[] = []
@@ -560,13 +564,22 @@ export function FoodDiary({
         {meals.map((m) => (
           <div key={m.meal} className="rounded-2xl border border-line/60 bg-surface/60 p-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-baseline gap-2">
+              <button
+                onClick={() => {
+                  const next = openMeal === m.meal ? null : m.meal
+                  setOpenMeal(next)
+                  if (next) setCostDraft(data.mealCosts?.[`${viewDate}:${m.meal}`] ?? 0)
+                }}
+                className="flex items-baseline gap-2 text-left active:opacity-60"
+              >
                 <span className="text-[14px] font-semibold">{MEAL_LABEL[m.meal]}</span>
                 <span className="text-[10px] text-muted/60">{MEAL_HINT[m.meal]}</span>
-              </div>
+                <span className="text-[10px] text-muted/40">{openMeal === m.meal ? '收起' : '编辑'}</span>
+              </button>
               <div className="flex items-center gap-2">
                 <span className="tabular text-[13px] font-semibold text-accent">{m.kcal || 0}</span>
                 <span className="text-[10px] text-muted">kcal</span>
+                <span className="tabular text-[11px] text-muted/70">¥{m.cost.toFixed(0)}</span>
                 <button
                   onClick={() => openPicker(m.meal)}
                   className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-accent/15 text-[15px] text-accent active:scale-90"
@@ -576,6 +589,29 @@ export function FoodDiary({
                 </button>
               </div>
             </div>
+
+            {openMeal === m.meal && (
+              <div className="mt-2 rounded-xl bg-surface/70 p-2">
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-[11px] text-muted">这餐共花</span>
+                  <div className="w-24">
+                    <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} className="px-2 py-1" />
+                  </div>
+                  <Button
+                    variant="soft"
+                    className="px-3 py-1.5 text-[11px]"
+                    onClick={() => {
+                      setMealCost(viewDate, m.meal, costDraft)
+                      setOpenMeal(null)
+                      setToast('已记这一餐的花费')
+                    }}
+                  >
+                    保存
+                  </Button>
+                  <span className="text-[10px] leading-4 text-muted/50">也可以点下面单条记录填单项花费</span>
+                </div>
+              </div>
+            )}
 
             {m.items.length === 0 ? (
               <button
@@ -628,7 +664,7 @@ export function FoodDiary({
                       <span>脂肪 {m.f}g</span>
                       <span>纤维 {m.fiber}g</span>
                     </div>
-                    <div className="text-[10px] leading-4 text-accent/80">{mealAdvice(m)}</div>
+                    <div className="text-[10px] leading-4 text-accent/80">{mealAdvice(m, m.meal, targets.kcal)}</div>
                   </div>
                 )}
               </div>
@@ -665,16 +701,30 @@ function FoodRow({ food, onClick }: { food: FoodItem; onClick: () => void }) {
   )
 }
 
-/** 每餐的规则型建议：只说最值得改的一两条 */
-function mealAdvice(m: { kcal: number; p: number; c: number; f: number; fiber: number }): string {
-  const tips: string[] = []
-  const proteinPerKcal = m.p / Math.max(m.kcal, 1)
-  if (m.p < 12) tips.push('蛋白偏少，加一份蛋/奶/豆制品')
-  if (m.fiber < 3) tips.push('纤维不足，配点蔬菜')
+/** 按餐次定位给建议：加餐不该按正餐的标准要求蛋白 */
+function mealAdvice(
+  m: { kcal: number; p: number; c: number; f: number; fiber: number },
+  meal: Meal,
+  dailyTarget: number,
+): string {
   const fatShare = (m.f * 9) / Math.max(m.kcal, 1)
-  if (fatShare > 0.42) tips.push('脂肪偏高，少油少炸')
-  if (m.c > 90) tips.push('碳水偏多，主食减半试试')
-  if (proteinPerKcal > 0.12) tips.push('蛋白给得很足 👍')
+  const share = m.kcal / Math.max(dailyTarget, 1)
+
+  if (meal === 'snack') {
+    if (m.kcal > 350) return '加餐偏多，控制在 200 kcal 内更合适'
+    if (fatShare > 0.55) return '这份加餐几乎全是脂肪，换水果或酸奶更好'
+    if (m.p >= 10) return '高蛋白加餐，选得不错'
+    if (m.fiber >= 2) return '有纤维的加餐，很合适'
+    return '这个量可以，注意别吃成第四餐'
+  }
+
+  const tips: string[] = []
+  const floor = meal === 'breakfast' ? 15 : meal === 'lunch' ? 22 : 18
+  if (m.p < floor) tips.push(`蛋白偏少，这一餐建议 ${floor}g 以上`)
+  if (meal !== 'breakfast' && m.fiber < 3) tips.push('纤维不足，配点蔬菜')
+  if (fatShare > (meal === 'dinner' ? 0.38 : 0.45)) tips.push('脂肪偏高，少油少炸')
+  if (meal === 'breakfast' && m.c < 30) tips.push('主食偏少，上午容易饿')
+  if (meal === 'dinner' && share > 0.4) tips.push('晚餐占全天偏多，尽量睡前 3 小时吃完')
   if (tips.length === 0) return '搭配均衡，保持'
   return tips.slice(0, 2).join(' · ')
 }

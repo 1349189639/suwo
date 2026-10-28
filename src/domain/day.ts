@@ -3,7 +3,7 @@ import { stepsKcal } from './activity'
 import { buildFromBmi, muscleFromBuild, smoothWeight, stageFromBmi, type BodyStage } from './avatar'
 import { lastNDates, todayKey } from './date'
 import { calcBmi, calcTdee, dailyKcalTarget, macroTarget } from './nutrition'
-import type { AppData, ExerciseLog, FoodLog, MacroSet } from './types'
+import { MEAL_ORDER, type AppData, type ExerciseLog, type FoodLog, type MacroSet, type Meal } from './types'
 
 export interface Targets {
   kcal: number
@@ -26,6 +26,8 @@ export interface DaySummary {
   water: number
   /** 今日餐饮花费（元） */
   cost: number
+  /** 每餐花费（单项 + 整餐） */
+  mealCosts: Record<Meal, number>
   /** 今日可摄入额度 = 基础目标 + 运动额外消耗 */
   budget: number
   baseTarget: number
@@ -70,7 +72,13 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   const exerciseMinutes = exercises.reduce((a, e) => a + e.minutes, 0)
   const steps = data.steps[date] ?? 0
   const fiber = Math.round(meals.reduce((a, l) => a + (l.fiber ?? 0), 0) * 10) / 10
-  const cost = Math.round(meals.reduce((a, l) => a + (l.cost ?? 0), 0) * 100) / 100
+  const mealCosts = {} as Record<Meal, number>
+  for (const m of MEAL_ORDER) {
+    const itemCost = meals.filter((l) => l.meal === m).reduce((a, l) => a + (l.cost ?? 0), 0)
+    const extra = data.mealCosts?.[`${date}:${m}`] ?? 0
+    mealCosts[m] = Math.round((itemCost + extra) * 100) / 100
+  }
+  const cost = Math.round(MEAL_ORDER.reduce((a, m) => a + mealCosts[m], 0) * 100) / 100
   const water = data.water?.[date] ?? 0
   const budget = targets.kcal + exerciseKcal
   const remaining = budget - Math.round(intake.kcal)
@@ -92,6 +100,7 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
     fiber,
     water,
     cost,
+    mealCosts,
     meals,
     exercises,
     exerciseKcal,

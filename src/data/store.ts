@@ -39,6 +39,7 @@ interface Store {
   removeExercise: (id: string) => void
   setSteps: (steps: number, date?: string) => void
   setWater: (ml: number, date?: string) => void
+  setMealCost: (date: string, meal: string, amount: number) => void
   addCustomFood: (food: Omit<FoodItem, 'id'>) => void
   setAvatarAction: (action: AvatarAction) => void
   setLook: (look: Look) => void
@@ -114,6 +115,16 @@ export const useStore = create<Store>((set, get) => {
       const d = date ?? todayKey()
       const data = { ...get().data }
       data.steps = { ...data.steps, [d]: Math.max(0, Math.round(steps)) }
+      commit(data)
+    },
+
+    setMealCost: (date, meal, amount) => {
+      const data = { ...get().data }
+      const key = `${date}:${meal}`
+      const next = { ...(data.mealCosts ?? {}) }
+      if (amount > 0) next[key] = Math.round(amount * 100) / 100
+      else delete next[key]
+      data.mealCosts = next
       commit(data)
     },
 

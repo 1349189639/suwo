@@ -124,6 +124,8 @@ export interface AppData {
   look?: Look
   /** 每日饮水，毫升 */
   water?: Record<string, number>
+  /** 整餐花费，key = "YYYY-MM-DD:餐次"（不绑定具体食物） */
+  mealCosts?: Record<string, number>
   createdAt: string
 }
 

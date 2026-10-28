@@ -260,7 +260,15 @@ export function FoodDiary({
           </span>
         </div>
 
-        <TextField value={query} onChange={setQuery} placeholder="搜食物，如 鸡胸肉 / 米饭 / 奶茶" prefix="🔍" />
+        <TextField
+          value={query}
+          onChange={(v) => {
+            setQuery(v)
+            if (v.trim() && category !== 'all' && category !== 'custom') setCategory('all')
+          }}
+          placeholder="搜食物，如 鸡胸肉 / 米饭 / 奶茶"
+          prefix="🔍"
+        />
 
         <div className="mt-2 flex gap-2">
           <button
@@ -545,7 +553,7 @@ export function FoodDiary({
 
       <div className="mt-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-3 py-2">
         <span className="text-[12px] text-muted">当日花费</span>
-        <span className="tabular text-[15px] font-semibold text-accent">¥{(day.cost ?? 0).toFixed(1)}</span>
+        <span className="tabular text-[15px] font-semibold text-accent">¥{money(day.cost ?? 0)}</span>
       </div>
 
       <div className="mt-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-3 py-2">
@@ -579,7 +587,7 @@ export function FoodDiary({
               <div className="flex items-center gap-2">
                 <span className="tabular text-[13px] font-semibold text-accent">{m.kcal || 0}</span>
                 <span className="text-[10px] text-muted">kcal</span>
-                <span className="tabular text-[11px] text-muted/70">¥{m.cost.toFixed(0)}</span>
+                <span className="tabular text-[11px] text-muted/70">¥{money(m.cost)}</span>
                 <button
                   onClick={() => openPicker(m.meal)}
                   className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-accent/15 text-[15px] text-accent active:scale-90"
@@ -593,7 +601,7 @@ export function FoodDiary({
             {openMeal === m.meal && (
               <div className="mt-2 rounded-xl bg-surface/70 p-2">
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-[11px] text-muted">这餐共花</span>
+                  <span className="shrink-0 text-[11px] text-muted">这一餐一共花了</span>
                   <div className="w-24">
                     <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} className="px-2 py-1" />
                   </div>
@@ -608,7 +616,9 @@ export function FoodDiary({
                   >
                     保存
                   </Button>
-                  <span className="text-[10px] leading-4 text-muted/50">也可以点下面单条记录填单项花费</span>
+                  <span className="text-[10px] leading-4 text-muted/50">
+                    填了就按这个算；单项合计 ¥{m.items.reduce((a, x) => a + (x.cost ?? 0), 0).toFixed(2)}
+                  </span>
                 </div>
               </div>
             )}
@@ -702,6 +712,8 @@ function FoodRow({ food, onClick }: { food: FoodItem; onClick: () => void }) {
 }
 
 /** 按餐次定位给建议：加餐不该按正餐的标准要求蛋白 */
+const money = (n: number) => (n % 1 === 0 ? String(n) : n.toFixed(2))
+
 function mealAdvice(
   m: { kcal: number; p: number; c: number; f: number; fiber: number },
   meal: Meal,

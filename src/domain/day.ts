@@ -76,7 +76,8 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   for (const m of MEAL_ORDER) {
     const itemCost = meals.filter((l) => l.meal === m).reduce((a, l) => a + (l.cost ?? 0), 0)
     const extra = data.mealCosts?.[`${date}:${m}`] ?? 0
-    mealCosts[m] = Math.round((itemCost + extra) * 100) / 100
+    // 用户声明了整餐总额就尊重它；只有单项之和超过总额时才以单项为准
+    mealCosts[m] = Math.round((extra > 0 ? Math.max(extra, itemCost) : itemCost) * 100) / 100
   }
   const cost = Math.round(MEAL_ORDER.reduce((a, m) => a + mealCosts[m], 0) * 100) / 100
   const water = data.water?.[date] ?? 0

@@ -369,9 +369,18 @@ export function filterFoods(
   custom: FoodItem[],
   category: FoodCategory | 'all' | 'custom',
 ): FoodItem[] {
-  const pool = category === 'custom' ? custom : [...FOODS, ...custom]
-  const scoped = category === 'all' || category === 'custom' ? pool : pool.filter((f) => f.category === category)
   const q = query.trim().toLowerCase()
+  const all = [...FOODS, ...custom]
+  // 有关键词时忽略分类：搜「玉米」不该被当前分类挡住
+  const scoped = q
+    ? category === 'custom'
+      ? custom
+      : all
+    : category === 'custom'
+      ? custom
+      : category === 'all'
+        ? all
+        : all.filter((f) => f.category === category)
   if (!q) return scoped
   return scoped.filter(
     (f) =>

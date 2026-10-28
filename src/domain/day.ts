@@ -24,6 +24,8 @@ export interface DaySummary {
   fiber: number
   /** 今日饮水（毫升） */
   water: number
+  /** 从食物里摄入的水分（毫升） */
+  foodWater: number
   /** 今日餐饮花费（元） */
   cost: number
   /** 每餐花费（单项 + 整餐） */
@@ -81,6 +83,7 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   }
   const cost = Math.round(MEAL_ORDER.reduce((a, m) => a + mealCosts[m], 0) * 100) / 100
   const water = data.water?.[date] ?? 0
+  const foodWater = Math.round(meals.reduce((a, l) => a + (l.water ? (l.grams * l.water) / 100 : 0), 0))
   const budget = targets.kcal + exerciseKcal
   const remaining = budget - Math.round(intake.kcal)
   const volume = exercises.reduce((a, e) => a + (e.sets ?? 0) * (e.reps ?? 0) * (e.weightKg ?? 0), 0)
@@ -100,6 +103,7 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
     intake,
     fiber,
     water,
+    foodWater,
     cost,
     mealCosts,
     meals,

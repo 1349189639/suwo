@@ -284,13 +284,15 @@ export function Home({
           { label: '蛋白', v: day.intake.p, t: targets.p, c: '#63a4ff' },
           { label: '碳水', v: day.intake.c, t: targets.c, c: '#f5b942' },
           { label: '脂肪', v: day.intake.f, t: targets.f, c: '#ff9f6b' },
+          { label: '纤维', v: day.fiber, t: 25, c: '#7bd88f' },
+          { label: '水分', v: day.water + day.foodWater, t: 2500, c: '#63c7ff', u: 'ml' },
         ].map((m) => (
           <div key={m.label} className="rounded-2xl border border-line/60 bg-surface/70 p-2.5">
             <div className="flex items-baseline justify-between">
               <span className="text-[11px] text-muted">{m.label}</span>
               <span className="tabular text-[12px] font-semibold">
                 {Math.round(m.v)}
-                <span className="text-[10px] font-normal text-muted">/{m.t}g</span>
+                <span className="text-[10px] font-normal text-muted">/{m.t}{('u' in m ? 'ml' : 'g')}</span>
               </span>
             </div>
             <div className="mt-1.5">

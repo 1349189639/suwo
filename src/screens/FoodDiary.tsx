@@ -39,6 +39,7 @@ export function FoodDiary({
   onOpenVision: () => void
 }) {
   const data = useStore((s) => s.data)
+  const customFoods = data.customFoods
   const addFoodLog = useStore((s) => s.addFoodLog)
   const removeFoodLog = useStore((s) => s.removeFoodLog)
   const updateFoodLog = useStore((s) => s.updateFoodLog)
@@ -420,6 +421,21 @@ export function FoodDiary({
                         const items = await estimateFood(query.trim())
                         if (items.length > 0) {
                           const it = items[0]
+                          const g = Math.max(it.grams, 1)
+                          if (!customFoods.some((f) => f.name === it.name)) {
+                            addCustomFood({
+                              name: it.name,
+                              category: 'dish',
+                              tags: ['AI 估算'],
+                              per100: {
+                                kcal: Math.round((it.kcal / g) * 100),
+                                p: Math.round((it.p / g) * 1000) / 10,
+                                c: Math.round((it.c / g) * 1000) / 10,
+                                f: Math.round((it.f / g) * 1000) / 10,
+                              },
+                              defaultGrams: Math.round(g),
+                            })
+                          }
                           addFoodLog({
                             date: viewDate,
                             meal,
@@ -430,7 +446,7 @@ export function FoodDiary({
                             c: it.c,
                             f: it.f,
                           })
-                          setToast('AI 估了一条，已记入')
+                          setToast('已记入，并存进食物库')
                           setView('diary')
                         } else {
                           setToast('AI 也没估出来，换个说法试试')

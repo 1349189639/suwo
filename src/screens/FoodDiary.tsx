@@ -604,7 +604,7 @@ export function FoodDiary({
                       <div className="text-[10px] text-muted/45">
                         蛋白 {it.p.toFixed(1)} · 碳水 {it.c.toFixed(1)} · 脂肪 {it.f.toFixed(1)}
                         {it.fiber ? ` · 纤维 ${it.fiber.toFixed(1)}` : ''}
-                        {it.water ? ` · 水 ${it.water}%` : ''}
+                        {it.water ? ` · 水 ${Math.round((it.grams * it.water) / 100)}ml` : ''}
                         {it.cost ? ` · ¥${it.cost.toFixed(1)}` : ''}
                       </div>
                     </button>

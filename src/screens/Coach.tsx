@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { askCoach, type ChatMsg } from '../data/coach'
+import { askCoach, clearChat, loadChat, saveChat, type ChatMsg } from '../data/coach'
 import { hasVisionConfig } from '../data/vision'
 import { useStore } from '../data/store'
 
@@ -7,12 +7,17 @@ const QUICK = ['这周早餐花了多少钱？', '今天还差多少蛋白？', 
 
 export function Coach({ onClose }: { onClose: () => void }) {
   const data = useStore((s) => s.data)
-  const [messages, setMessages] = useState<ChatMsg[]>([])
+  const uid = useStore((s) => s.cloudUser?.uid ?? null)
+  const [messages, setMessages] = useState<ChatMsg[]>(() => loadChat(uid))
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
   const configured = hasVisionConfig()
+
+  useEffect(() => {
+    saveChat(uid, messages)
+  }, [uid, messages])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -43,9 +48,22 @@ export function Coach({ onClose }: { onClose: () => void }) {
           <div className="text-[15px] font-semibold">问教练</div>
           <div className="text-[10px] text-muted/60">会看你的饮食、体重和花费</div>
         </div>
-        <button onClick={onClose} className="text-[12px] text-muted">
-          关闭
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (messages.length === 0) return onClose()
+              if (!window.confirm('清空全部对话记录？')) return
+              clearChat(uid)
+              setMessages([])
+            }}
+            className="text-[12px] text-muted/60"
+          >
+            清空
+          </button>
+          <button onClick={onClose} className="text-[12px] text-muted">
+            关闭
+          </button>
+        </div>
       </div>
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">

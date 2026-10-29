@@ -8,15 +8,21 @@ export interface ChatMsg {
   content: string
 }
 
-const SYSTEM = `你是「塑我」App 里的私人健身饮食助手。用户会问你关于他自己的饮食、体重、花费、训练的问题。
+const SYSTEM = `你是「塑我」App 里的私人教练兼营养师，服务一个具体的用户。
 
-规则：
-1. 用中文回答，简洁直接，先给结论再给理由，不要客套。
-2. **只依据下面给出的数据**回答。数据里没有的，直接说「我这里没有这项记录」，不要编。
-3. 涉及钱用 ¥ 表示，保留一位小数以内的精度。
-4. 建议要具体、可执行（例如「晚餐主食减到一小碗」），不要泛泛而谈。
-5. 如果用户的问题和健身/饮食无关，正常聊天即可，但不要长篇大论。
-6. 回答控制在 200 字以内，除非用户要求详细。`
+你有两种能力：
+1. 基于下面的数据，回答关于他的事实问题（花了多少钱、吃了多少、还差多少）；
+2. 用你的专业知识做推理、给建议、解释原因。
+
+回答要求：
+- 中文，口吻自然，像朋友里的专业人士：直接、有判断，不客套、不喊口号、不说"作为一个AI"。
+- 事实类问题：先给数字和结论，必要时补一句依据。
+- 建议类问题：先给结论，再给 2-3 条可执行的做法，最好落到"下一餐具体怎么吃"。
+- 允许推理和判断，例如「这周蛋白只有 60g/天，掉秤大概率掉的是肌肉」；但要把推断和事实区分开，用"我判断/大概率"这类措辞。
+- 数据里没有的项，直说「没有这项记录」，绝不编数字。
+- 长度跟着问题走：简单问题一两句，复杂问题分点展开，不要为了凑字数注水。
+- 涉及钱用 ¥。
+- 用户如果问的是方法论（怎么练、怎么吃、为什么不掉秤），可以给通用专业知识，但要结合他的数据说。`
 
 /** 把用户数据压成一段紧凑的上下文，喂给模型 */
 export function buildContext(data: AppData): string {
@@ -82,8 +88,30 @@ export function buildContext(data: AppData): string {
   )
   if (todayItems.length) lines.push(`【今日记录】${todayItems.join('；')}`)
 
+  // 近 7 天运动
+  const exs = data.exercises.filter((e) => dates.includes(e.date))
+  if (exs.length) {
+    const byName = new Map<string, number>()
+    for (const e of exs) byName.set(e.name, (byName.get(e.name) ?? 0) + Math.round(e.kcal))
+    lines.push(
+      `【近7天运动】${exs.length} 次，合计 ${Math.round(exs.reduce((a, b) => a + b.kcal, 0))} kcal：` +
+        [...byName.entries()].slice(0, 6).map(([n, k]) => `${n} ${k}kcal`).join('；'),
+    )
+  } else {
+    lines.push('【近7天运动】没有记录')
+  }
+
+  // 连续记录天数
+  let streak = 0
+  const probe = [...dates].reverse()
+  for (const d of probe) {
+    if (summarizeDay(data, d).meals.length > 0) streak++
+    else break
+  }
+  lines.push(`【连续记录】${streak} 天`)
+
   // 体重趋势
-  const ws = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-7)
+  const ws = [...data.weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
   if (ws.length) {
     lines.push(`【体重记录】${ws.map((w) => `${w.date.slice(5)} ${w.kg}kg`).join('  ')}`)
   }
@@ -98,4 +126,48 @@ export async function askCoach(history: ChatMsg[], data: AppData): Promise<strin
     ...history.slice(-8).map((m) => ({ role: m.role, content: m.content })),
   ]
   return chat(messages, 0.5)
+}
+
+/* ---------------- 对话持久化 ---------------- */
+
+const CHAT_KEY = 'suwo:coach:v1'
+const MAX_SAVED = 200
+
+function chatKey(uid: string | null): string {
+  return uid ? `${CHAT_KEY}:${uid}` : CHAT_KEY
+}
+
+export function loadChat(uid: string | null): ChatMsg[] {
+  try {
+    const raw = localStorage.getItem(chatKey(uid))
+    if (!raw) return []
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return []
+    return arr
+      .filter((m): m is ChatMsg => {
+        const o = m as { role?: unknown; content?: unknown }
+        return (
+          (o?.role === 'user' || o?.role === 'assistant') && typeof o?.content === 'string'
+        )
+      })
+      .slice(-MAX_SAVED)
+  } catch {
+    return []
+  }
+}
+
+export function saveChat(uid: string | null, messages: ChatMsg[]): void {
+  try {
+    localStorage.setItem(chatKey(uid), JSON.stringify(messages.slice(-MAX_SAVED)))
+  } catch {
+    /* 存不下就算了，不影响当前会话 */
+  }
+}
+
+export function clearChat(uid: string | null): void {
+  try {
+    localStorage.removeItem(chatKey(uid))
+  } catch {
+    /* ignore */
+  }
 }

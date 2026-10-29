@@ -110,6 +110,9 @@ export function normalize(input: unknown): AppData {
           p: num(l.p),
           c: num(l.c),
           f: num(l.f),
+          fiber: typeof l.fiber === 'number' ? l.fiber : undefined,
+          water: typeof l.water === 'number' ? l.water : undefined,
+          cost: typeof l.cost === 'number' ? l.cost : undefined,
           foodId: typeof l.foodId === 'string' ? l.foodId : undefined,
           createdAt: num(l.createdAt, Date.now()),
         }))
@@ -158,6 +161,8 @@ export function normalize(input: unknown): AppData {
             p: num(obj(f.per100).p),
             c: num(obj(f.per100).c),
             f: num(obj(f.per100).f),
+            fiber: typeof obj(f.per100).fiber === 'number' ? (obj(f.per100).fiber as number) : undefined,
+            water: typeof obj(f.per100).water === 'number' ? (obj(f.per100).water as number) : undefined,
           },
           defaultGrams: num(f.defaultGrams, 100),
           custom: true,
@@ -168,6 +173,16 @@ export function normalize(input: unknown): AppData {
   const stepsRaw = obj(src.steps)
   for (const [k, v] of Object.entries(stepsRaw)) {
     if (typeof v === 'number' && Number.isFinite(v)) steps[k] = v
+  }
+
+  const water: Record<string, number> = {}
+  for (const [k, v] of Object.entries(obj(src.water))) {
+    if (typeof v === 'number' && Number.isFinite(v)) water[k] = v
+  }
+
+  const mealCosts: Record<string, number> = {}
+  for (const [k, v] of Object.entries(obj(src.mealCosts))) {
+    if (typeof v === 'number' && Number.isFinite(v)) mealCosts[k] = v
   }
 
   const ACTIONS: AvatarAction[] = ['idle', 'run', 'pushup', 'bench', 'badminton', 'flex', 'sleep']
@@ -184,6 +199,8 @@ export function normalize(input: unknown): AppData {
     exercises,
     customFoods,
     steps,
+    water,
+    mealCosts,
     avatarAction,
     look: normalizeLook(src.look, profile?.gender ?? 'male'),
     createdAt: str(src.createdAt, base.createdAt),

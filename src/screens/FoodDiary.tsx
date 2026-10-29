@@ -97,6 +97,7 @@ export function FoodDiary({
         f: Math.round(sum((x) => x.f) * 10) / 10,
         fiber: Math.round(sum((x) => x.fiber ?? 0) * 10) / 10,
         cost: day.mealCosts[m],
+        waterMl: Math.round(sum((x) => (x.water ? (x.grams * x.water) / 100 : 0))),
       }
     })
   }, [day])
@@ -588,22 +589,28 @@ export function FoodDiary({
         {meals.map((m) => (
           <div key={m.meal} className="rounded-2xl border border-line/60 bg-surface/60 p-3">
             <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const next = openMeal === m.meal ? null : m.meal
-                  setOpenMeal(next)
-                  if (next) setCostDraft(data.mealCosts?.[`${viewDate}:${m.meal}`] ?? 0)
-                }}
-                className="flex items-baseline gap-2 text-left active:opacity-60"
-              >
+              <div className="flex items-baseline gap-2">
                 <span className="text-[14px] font-semibold">{MEAL_LABEL[m.meal]}</span>
                 <span className="text-[10px] text-muted/60">{MEAL_HINT[m.meal]}</span>
-                <span className="text-[10px] text-muted/40">{openMeal === m.meal ? '收起' : '编辑'}</span>
-              </button>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="tabular text-[13px] font-semibold text-accent">{m.kcal || 0}</span>
                 <span className="text-[10px] text-muted">kcal</span>
-                <span className="tabular text-[11px] text-muted/70">¥{money(m.cost)}</span>
+                <button
+                  onClick={() => {
+                    const next = openMeal === m.meal ? null : m.meal
+                    setOpenMeal(next)
+                    if (next) setCostDraft(data.mealCosts?.[`${viewDate}:${m.meal}`] ?? 0)
+                  }}
+                  className={
+                    'rounded-lg border px-2 py-0.5 text-[10px] active:opacity-60 ' +
+                    (openMeal === m.meal
+                      ? 'border-accent/60 bg-accent/15 text-accent'
+                      : 'border-line/70 bg-surface/60 text-muted')
+                  }
+                >
+                  记账 ¥{money(m.cost)}
+                </button>
                 <button
                   onClick={() => openPicker(m.meal)}
                   className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-accent/15 text-[15px] text-accent active:scale-90"
@@ -689,6 +696,7 @@ export function FoodDiary({
                       <span>碳水 {m.c}g</span>
                       <span>脂肪 {m.f}g</span>
                       <span>纤维 {m.fiber}g</span>
+                      <span>水分 {m.waterMl}ml</span>
                     </div>
                     <div className="text-[10px] leading-4 text-accent/80">{mealAdvice(m, m.meal, targets.kcal)}</div>
                   </div>

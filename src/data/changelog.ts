@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.7.5'
+﻿export const CURRENT_VERSION = '0.7.6'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,17 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.6',
+    date: '2026-10-29',
+    title: '首页 AI 教练',
+    items: [
+      '首页右上角 🤖 打开教练对话，可结合你的饮食、花费、体重、运动记录提问并获得建议',
+      '事实类问题会对回答里的数字做二次核对；长对话自动压缩，保留之前聊过的要点',
+      '对话按账号保存在本机，可一键清空；复用「AI 识图」里配置的同一套模型 Key',
+      '步数不准时，可在首页步数卡片下方手动填写今日步数进行校准',
+    ],
+  },
   {
     version: '0.7.5',
     date: '2026-10-29',

@@ -457,7 +457,10 @@ export function ProfileScreen({
               {stepDbg.branch && (
                 <div>
                   分支：{stepDbg.branch === 'todayBoot' ? '今天开机·累计即今日'
-                    : stepDbg.branch === 'baselineNewDay' ? '跨天首次读取·基准刚重置'
+                    : stepDbg.branch?.startsWith('baselineNewDay')
+                      ? stepDbg.branch === 'baselineNewDay(prevLast)'
+                        ? '跨天·基准取昨日末次累计'
+                        : '跨天首次读取·无昨日基准·基准刚重置'
                     : stepDbg.branch === 'baselineRebooted' ? '检测到重启·基准刚重置'
                     : '基准相减'} · 今天开机：{String(stepDbg.bootToday)}
                 </div>

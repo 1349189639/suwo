@@ -49,14 +49,17 @@ export function Coach({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-canvas">
-      <div className="flex items-center justify-between border-b border-line/60 px-4 py-3">
-        <div>
-          <div className="text-[15px] font-semibold">问教练</div>
-          <div className="text-[10px] text-muted/60">
+      <div
+        className="flex items-center justify-between border-b border-line/60 px-4 pb-3"
+        style={{ paddingTop: 'max(44px, env(safe-area-inset-top))' }}
+      >
+        <div className="min-w-0">
+          <div className="text-[17px] font-semibold">问教练</div>
+          <div className="mt-0.5 text-[11px] text-muted/60">
             {state.summary ? '记得你们之前聊过什么' : '会看你的饮食、体重、运动、花费'}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => {
               if (messages.length === 0) return onClose()
@@ -64,11 +67,14 @@ export function Coach({ onClose }: { onClose: () => void }) {
               clearChat(uid)
               setState({ messages: [], summary: '' })
             }}
-            className="text-[12px] text-muted/60"
+            className="rounded-full border border-line/70 bg-surface/70 px-3.5 py-2 text-[12px] text-muted active:opacity-60"
           >
             清空
           </button>
-          <button onClick={onClose} className="text-[12px] text-muted">
+          <button
+            onClick={onClose}
+            className="rounded-full bg-accent/20 px-4 py-2 text-[13px] font-medium text-accent active:opacity-60"
+          >
             关闭
           </button>
         </div>

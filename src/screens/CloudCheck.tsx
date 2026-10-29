@@ -36,7 +36,10 @@ export function CloudCheck({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-canvas px-4 py-4">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-canvas px-4 pb-4"
+      style={{ paddingTop: 'max(44px, env(safe-area-inset-top))' }}
+    >
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[16px] font-semibold">云连接自检</span>
         <button onClick={onClose} className="text-[12px] text-muted">

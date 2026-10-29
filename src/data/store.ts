@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { todayKey } from '../domain/date'
 import type { Look } from '../domain/look'
+import { normalizeLook } from '../domain/look'
 import type {
   AppData,
   AvatarAction,
@@ -53,6 +54,8 @@ interface Store {
   addCustomFood: (food: Omit<FoodItem, 'id'>) => void
   setAvatarAction: (action: AvatarAction) => void
   setLook: (look: Look) => void
+  /** 仅切换服装款式，保留皮肤/发型/发色/服装色等其余外观 */
+  setOutfitStyle: (style: Look['outfitStyle']) => void
   switchAccount: (id: string | null) => void
   replaceData: (text: string) => boolean
   reset: () => void
@@ -217,6 +220,13 @@ export const useStore = create<Store>((set, get) => {
 
     setLook: (look) => {
       commit({ ...get().data, look })
+    },
+
+    setOutfitStyle: (style) => {
+      const data = get().data
+      const gender = data.profile?.gender ?? 'male'
+      const merged = normalizeLook({ ...(data.look ?? {}), outfitStyle: style }, gender)
+      commit({ ...data, look: merged })
     },
 
     switchAccount: (id) => {

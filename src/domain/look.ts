@@ -4,12 +4,15 @@ export type SkinTone = 'light' | 'warm' | 'tan'
 export type HairStyle = 'short' | 'buzz' | 'bob' | 'long'
 export type HairColor = 'black' | 'brown' | 'chestnut' | 'ash'
 export type OutfitColor = 'mint' | 'coral' | 'graphite' | 'sky'
+/** 服装款式：sport 运动装（默认主皮肤，露躯干可见体型）；suit 西装；casual 日常长袖长裤 */
+export type OutfitStyle = 'sport' | 'suit' | 'casual' | 'classic'
 
 export interface Look {
   skin: SkinTone
   hair: HairStyle
   hairColor: HairColor
   outfit: OutfitColor
+  outfitStyle: OutfitStyle
 }
 
 export const SKIN_TONES: Record<SkinTone, { label: string; base: string; shade: string; line: string }> = {
@@ -32,6 +35,13 @@ export const OUTFITS: Record<OutfitColor, { label: string; color: string }> = {
   graphite: { label: '石墨', color: '#7b8ea3' },
 }
 
+export const OUTFIT_STYLES: { id: OutfitStyle; label: string; hint: string }[] = [
+  { id: 'sport', label: '运动装', hint: '默认，露躯干可见体型变化' },
+  { id: 'suit', label: '西装', hint: '遮体穿搭，仅展示整体轮廓' },
+  { id: 'casual', label: '日常休闲', hint: '卫衣 / 长袖长裤' },
+  { id: 'classic', label: '经典手绘', hint: '最初那版小人物，会呼吸会眨眼' },
+]
+
 export const HAIR_STYLES: { id: HairStyle; label: string; hint: string }[] = [
   { id: 'short', label: '短发', hint: '利落，适合运动' },
   { id: 'buzz', label: '寸头', hint: '最省事' },
@@ -45,6 +55,7 @@ export function defaultLook(gender: Gender): Look {
     hair: gender === 'male' ? 'short' : 'long',
     hairColor: 'black',
     outfit: 'mint',
+    outfitStyle: 'sport',
   }
 }
 
@@ -56,5 +67,9 @@ export function normalizeLook(input: unknown, gender: Gender): Look {
     hair: src.hair && HAIR_STYLES.some((h) => h.id === src.hair) ? src.hair : base.hair,
     hairColor: src.hairColor && src.hairColor in HAIR_COLORS ? src.hairColor : base.hairColor,
     outfit: src.outfit && src.outfit in OUTFITS ? src.outfit : base.outfit,
+    outfitStyle:
+      src.outfitStyle && OUTFIT_STYLES.some((s) => s.id === src.outfitStyle)
+        ? src.outfitStyle
+        : base.outfitStyle,
   }
 }

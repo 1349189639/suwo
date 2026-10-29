@@ -152,7 +152,7 @@ export function seedDemoIfNeeded(): void {
   const hc = params.get('hairColor')
   const of = params.get('outfit')
   if (h || hc || of) {
-    const base = data.look ?? { skin: 'warm', hair: 'short', hairColor: 'black', outfit: 'mint' }
+    const base = data.look ?? { skin: 'warm', hair: 'short', hairColor: 'black', outfit: 'mint', outfitStyle: 'sport' }
     data.look = {
       ...base,
       hair: (h as typeof base.hair) ?? base.hair,

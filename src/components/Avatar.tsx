@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { HAIR_COLORS, OUTFITS, SKIN_TONES, defaultLook, type Look } from '../domain/look'
+import { cx } from './ui'
 import type { AvatarAction, Gender } from '../domain/types'
 
 interface Props {
@@ -61,6 +63,43 @@ export function Avatar({
   className,
   pulse,
 }: Props) {
+  // ---- 贴图形象（豆包 34 张素材）：classic = 保留手绘 SVG ----
+  const [imgFailed, setImgFailed] = useState(false)
+  const activeLook = look ?? defaultLook(gender)
+  const style = activeLook.outfitStyle ?? 'sport'
+  const shots = style === 'classic' ? [] : pickShots(build, gender, activeLook)
+
+  if (!imgFailed && shots.length > 0) {
+    return (
+      <div
+        className={cx('relative select-none', className)}
+        style={{ width: size, height: size * 1.5 }}
+        aria-hidden
+      >
+        {shots.map((s) => (
+          <img
+            key={s.src}
+            src={s.src}
+            alt=""
+            draggable={false}
+            onError={() => setImgFailed(true)}
+            style={{
+              position: 'absolute',
+              left: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              opacity: s.opacity,
+              transition: 'opacity .18s ease',
+              transform: `scale(${1 + s.zoom})`,
+              transformOrigin: '50% 100%',
+            }}
+          />
+        ))}
+      </div>
+    )
+  }
   const CX = 100
   const HEAD_R = 33
   const HEAD_CY = 64
@@ -539,4 +578,55 @@ export function Avatar({
       {pulse && <circle cx={CX} cy={150} r={92} fill="none" stroke={OUTFIT} strokeWidth={2} opacity={0.4} />}
     </svg>
   )
+}
+const BODY_TIERS = 9
+
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v))
+}
+
+function tierSrc(gender: Gender, idx: number, outfit: string): string {
+  if (idx === 4 && outfit !== 'mint') return `/avatar/${gender}-body-4-${outfit}.png`
+  return `/avatar/${gender}-body-${idx}.png`
+}
+
+/** 按映射表 v3 选图；sport 相邻两档交叉淡入，suit/casual 固定标准档 */
+function pickShots(build: number, gender: Gender, look: Look): { src: string; opacity: number; zoom: number }[] {
+  const style = look.outfitStyle ?? 'sport'
+
+  if (style === 'suit' || style === 'casual') {
+    return [{ src: `/avatar/${gender}-outfit-${style}-4.png`, opacity: 1, zoom: 0 }]
+  }
+
+  const pos = clamp01(build) * (BODY_TIERS - 1)
+  const lo = Math.floor(pos)
+  const hi = Math.min(BODY_TIERS - 1, Math.ceil(pos))
+  const t = pos - lo
+
+  // 外观小样只在标准档 + mint 时命中（本批只有单维度小样）
+  if (lo === 4 && hi === 4) {
+    const sample = look.outfit === 'mint' ? sampleSrc(gender, look) : null
+    if (sample) return [{ src: sample, opacity: 1, zoom: 0 }]
+  }
+
+  if (lo === hi) {
+    return [{ src: tierSrc(gender, lo, look.outfit), opacity: 1, zoom: 0 }]
+  }
+
+  // 相邻两档淡入；低档略放大、高档略收，保证头顶/脚底对齐
+  return [
+    { src: tierSrc(gender, lo, look.outfit), opacity: 1 - t, zoom: 0.012 * t },
+    { src: tierSrc(gender, hi, look.outfit), opacity: t, zoom: -0.012 * (1 - t) },
+  ]
+}
+
+/** 发型/发色/肤色小样（仅标准档 sport），没有素材返回 null */
+function sampleSrc(gender: Gender, look: Look): string | null {
+  if (gender === 'male' && look.hair === 'buzz') return '/avatar/male-buzz.png'
+  if (gender === 'female' && look.hair === 'bob') return '/avatar/female-bob.png'
+  if (look.hair === 'bob' || look.hair === 'buzz') return null
+  if (look.hairColor === 'brown') return `/avatar/${gender}-brown.png`
+  if (gender === 'male' && look.skin === 'light') return '/avatar/male-light.png'
+  if (gender === 'female' && look.skin === 'tan') return '/avatar/female-tan.png'
+  return null
 }

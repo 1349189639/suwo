@@ -8,19 +8,21 @@ import {
   HAIR_COLORS,
   HAIR_STYLES,
   OUTFITS,
+  OUTFIT_STYLES,
   SKIN_TONES,
   defaultLook,
   type HairColor,
   type HairStyle,
   type Look,
   type OutfitColor,
+  type OutfitStyle,
   type SkinTone,
 } from '../domain/look'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 px-1 text-[12px] text-muted">{title}</div>
+      <div className="mb-2 flex items-baseline gap-2 px-1">`n        <span className="text-[12px] text-muted">{title}</span>`n        {hint && <span className="text-[10px] text-muted/50">{hint}</span>}`n      </div>
       {children}
     </div>
   )
@@ -163,8 +165,36 @@ export function LookEditor() {
           </div>
         </Section>
 
-        <Section title="服装">
-          <div className="flex gap-5 px-1">
+        <Section title="款式">
+          <div className="grid grid-cols-2 gap-2 px-1">
+            {OUTFIT_STYLES.map((s) => {
+              const active = (look.outfitStyle ?? 'sport') === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => update({ outfitStyle: s.id as OutfitStyle })}
+                  className={
+                    'rounded-2xl border px-3 py-2 text-left transition active:scale-[0.98] ' +
+                    (active
+                      ? 'border-accent/60 bg-accent/15'
+                      : 'border-line/60 bg-surface2/40')
+                  }
+                >
+                  <div className={'text-[13px] font-medium ' + (active ? 'text-accent' : '')}>
+                    {s.label}
+                  </div>
+                  <div className="mt-0.5 text-[10px] leading-4 text-muted/60">{s.hint}</div>
+                </button>
+              )
+            })}
+          </div>
+        </Section>
+
+        <Section
+          title="服装颜色"
+          hint={(look.outfitStyle === 'suit' || look.outfitStyle === 'casual') ? '这两套是固定配色' : undefined}
+        >
+          <div className={'flex gap-5 px-1 ' + ((look.outfitStyle === 'suit' || look.outfitStyle === 'casual') ? 'pointer-events-none opacity-30' : '')}>
             {(Object.keys(OUTFITS) as OutfitColor[]).map((k) => (
               <Swatch
                 key={k}

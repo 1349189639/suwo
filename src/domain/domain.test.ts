@@ -349,3 +349,47 @@ describe('周汇总', () => {
     expect(summarizeWeek(data, '2026-10-24').weightChange).toBeNull()
   })
 })
+
+describe('存储归一化', () => {
+  it('重启后保留纤维、含水量、花费、饮水和整餐花费', () => {
+    const raw = {
+      schema: 1,
+      profile: { name: 'a', gender: 'male', heightCm: 175, weightKg: 70, age: 25 },
+      goal: null,
+      weights: [],
+      customFoods: [
+        { id: 'c1', name: '测试', category: 'dish', tags: [], per100: { kcal: 100, p: 1, c: 2, f: 3, fiber: 4, water: 90 }, defaultGrams: 100 },
+      ],
+      foodLogs: [
+        {
+          id: 'l1',
+          date: '2026-01-01',
+          meal: 'breakfast',
+          name: '苹果',
+          grams: 200,
+          kcal: 104,
+          p: 0.5,
+          c: 28,
+          f: 0.4,
+          fiber: 4.8,
+          water: 85,
+          cost: 12.5,
+          createdAt: 1,
+        },
+      ],
+      exercises: [],
+      steps: {},
+      water: { '2026-01-01': 500 },
+      mealCosts: { '2026-01-01:breakfast': 40 },
+      createdAt: '2026-01-01',
+    }
+    const n = normalize(raw as unknown)
+    expect(n.foodLogs[0].fiber).toBe(4.8)
+    expect(n.foodLogs[0].water).toBe(85)
+    expect(n.foodLogs[0].cost).toBe(12.5)
+    expect(n.customFoods[0].per100.fiber).toBe(4)
+    expect(n.customFoods[0].per100.water).toBe(90)
+    expect(n.water?.['2026-01-01']).toBe(500)
+    expect(n.mealCosts?.['2026-01-01:breakfast']).toBe(40)
+  })
+})

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { askCoach, clearChat, loadChat, saveChat, type ChatMsg } from '../data/coach'
+import { askCoach, clearChat, compact, loadChat, saveChat, type ChatState } from '../data/coach'
 import { hasVisionConfig } from '../data/vision'
 import { useStore } from '../data/store'
 
@@ -8,16 +8,17 @@ const QUICK = ['这周早餐花了多少钱？', '今天还差多少蛋白？', 
 export function Coach({ onClose }: { onClose: () => void }) {
   const data = useStore((s) => s.data)
   const uid = useStore((s) => s.cloudUser?.uid ?? null)
-  const [messages, setMessages] = useState<ChatMsg[]>(() => loadChat(uid))
+  const [state, setState] = useState<ChatState>(() => loadChat(uid))
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
   const configured = hasVisionConfig()
+  const messages = state.messages
 
   useEffect(() => {
-    saveChat(uid, messages)
-  }, [uid, messages])
+    saveChat(uid, state)
+  }, [uid, state])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -28,12 +29,17 @@ export function Coach({ onClose }: { onClose: () => void }) {
     if (!q || busy) return
     setError('')
     setInput('')
-    const next: ChatMsg[] = [...messages, { role: 'user', content: q }]
-    setMessages(next)
+    const asking: ChatState = { ...state, messages: [...state.messages, { role: 'user', content: q }] }
+    setState(asking)
     setBusy(true)
     try {
-      const reply = await askCoach(next, data)
-      setMessages([...next, { role: 'assistant', content: reply }])
+      const { answer } = await askCoach(asking, data)
+      const done: ChatState = { ...asking, messages: [...asking.messages, { role: 'assistant', content: answer }] }
+      setState(done)
+      // 后台压缩，不阻塞对话
+      void compact(done).then((c) => {
+        if (c !== done) setState((cur) => (cur === done ? c : cur))
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : '出错了，稍后再试')
     } finally {
@@ -46,7 +52,9 @@ export function Coach({ onClose }: { onClose: () => void }) {
       <div className="flex items-center justify-between border-b border-line/60 px-4 py-3">
         <div>
           <div className="text-[15px] font-semibold">问教练</div>
-          <div className="text-[10px] text-muted/60">会看你的饮食、体重和花费</div>
+          <div className="text-[10px] text-muted/60">
+            {state.summary ? '记得你们之前聊过什么' : '会看你的饮食、体重、运动、花费'}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -54,7 +62,7 @@ export function Coach({ onClose }: { onClose: () => void }) {
               if (messages.length === 0) return onClose()
               if (!window.confirm('清空全部对话记录？')) return
               clearChat(uid)
-              setMessages([])
+              setState({ messages: [], summary: '' })
             }}
             className="text-[12px] text-muted/60"
           >
@@ -69,9 +77,7 @@ export function Coach({ onClose }: { onClose: () => void }) {
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
           <div className="space-y-2">
-            <p className="text-[12px] leading-5 text-muted/70">
-              你可以问我关于你自己的事，比如：
-            </p>
+            <p className="text-[12px] leading-5 text-muted/70">你可以问我关于你自己的事，比如：</p>
             {QUICK.map((q) => (
               <button
                 key={q}

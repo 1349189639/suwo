@@ -119,48 +119,110 @@ export function buildContext(data: AppData): string {
   return lines.join('\n')
 }
 
-export async function askCoach(history: ChatMsg[], data: AppData): Promise<string> {
+export interface ChatState {
+  messages: ChatMsg[]
+  /** 更早对话的压缩摘要 */
+  summary: string
+}
+
+/** 事实类问题才做二次核对，避免每句都多花一次调用 */
+function needsCheck(q: string): boolean {
+  return /多少|几|花了|花费|钱|吃了|摄入|差|达标|几天|几次|kcal|卡/.test(q)
+}
+
+const VERIFY_PROMPT = `你在核对一份回答里的数字是否与给定数据一致。
+
+规则：
+- 逐项核对回答中出现的数字（热量、克数、金额、天数、次数）。
+- 如果全部与数据一致、且没有遗漏关键数据，只输出两个字母：OK
+- 如果有数字错误、算错、或明显遗漏了能回答问题的关键数据，输出修正后的完整回答（不要解释你改了什么）。`
+
+export async function askCoach(
+  state: ChatState,
+  data: AppData,
+): Promise<{ answer: string; checked: boolean }> {
   const ctx = buildContext(data)
-  const messages = [
-    { role: 'system', content: `${SYSTEM}\n\n以下是该用户当前的数据：\n${ctx}` },
-    ...history.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-  ]
-  return chat(messages, 0.5)
+  const system = state.summary
+    ? `${SYSTEM}\n\n【更早对话的摘要】\n${state.summary}\n\n以下是该用户当前的数据：\n${ctx}`
+    : `${SYSTEM}\n\n以下是该用户当前的数据：\n${ctx}`
+
+  const history = state.messages.slice(-12).map((m) => ({ role: m.role, content: m.content }))
+  const question = state.messages.filter((m) => m.role === 'user').slice(-1)[0]?.content ?? ''
+  let answer = await chat([{ role: 'system', content: system }, ...history], 0.6)
+
+  // C：自检。只有事实类问题 + 回答里带数字时才核对
+  let checked = false
+  if (needsCheck(question) && /\d/.test(answer)) {
+    checked = true
+    try {
+      const verdict = await chat(
+        [
+          { role: 'system', content: `${VERIFY_PROMPT}\n\n以下是该用户的真实数据：\n${ctx}` },
+          {
+            role: 'user',
+            content: `问题：${question}\n\n待核对的回答：\n${answer}`,
+          },
+        ],
+        0.1,
+      )
+      const v = verdict.trim()
+      if (v && !/^ok$/i.test(v) && v.length > 8) answer = v
+    } catch {
+      // 核对失败就用原回答，不打断对话
+    }
+  }
+
+  return { answer, checked }
 }
 
 /* ---------------- 对话持久化 ---------------- */
 
-const CHAT_KEY = 'suwo:coach:v1'
+const CHAT_KEY = 'suwo:coach:v2'
 const MAX_SAVED = 200
+const KEEP_RECENT = 12
+const COMPACT_AT = 20
 
 function chatKey(uid: string | null): string {
   return uid ? `${CHAT_KEY}:${uid}` : CHAT_KEY
 }
 
-export function loadChat(uid: string | null): ChatMsg[] {
+export function loadChat(uid: string | null): ChatState {
   try {
     const raw = localStorage.getItem(chatKey(uid))
-    if (!raw) return []
-    const arr = JSON.parse(raw) as unknown
-    if (!Array.isArray(arr)) return []
-    return arr
-      .filter((m): m is ChatMsg => {
-        const o = m as { role?: unknown; content?: unknown }
-        return (
-          (o?.role === 'user' || o?.role === 'assistant') && typeof o?.content === 'string'
-        )
-      })
-      .slice(-MAX_SAVED)
+    if (!raw) return { messages: [], summary: '' }
+    const parsed = JSON.parse(raw) as unknown
+
+    // 兼容旧版（直接存数组）
+    if (Array.isArray(parsed)) {
+      return { messages: sanitize(parsed), summary: '' }
+    }
+    const obj = parsed as { messages?: unknown; summary?: unknown }
+    return {
+      messages: sanitize(Array.isArray(obj.messages) ? obj.messages : []),
+      summary: typeof obj.summary === 'string' ? obj.summary : '',
+    }
   } catch {
-    return []
+    return { messages: [], summary: '' }
   }
 }
 
-export function saveChat(uid: string | null, messages: ChatMsg[]): void {
+function sanitize(arr: unknown[]): ChatMsg[] {
+  return arr
+    .filter((m): m is ChatMsg => {
+      const o = m as { role?: unknown; content?: unknown }
+      return (o?.role === 'user' || o?.role === 'assistant') && typeof o?.content === 'string'
+    })
+    .slice(-MAX_SAVED)
+}
+
+export function saveChat(uid: string | null, state: ChatState): void {
   try {
-    localStorage.setItem(chatKey(uid), JSON.stringify(messages.slice(-MAX_SAVED)))
+    localStorage.setItem(
+      chatKey(uid),
+      JSON.stringify({ messages: state.messages.slice(-MAX_SAVED), summary: state.summary }),
+    )
   } catch {
-    /* 存不下就算了，不影响当前会话 */
+    /* 存不下不影响当前会话 */
   }
 }
 
@@ -169,5 +231,34 @@ export function clearChat(uid: string | null): void {
     localStorage.removeItem(chatKey(uid))
   } catch {
     /* ignore */
+  }
+}
+
+/** C：长对话压缩。超过 20 条时，把较早的部分压成摘要，只留最近 12 条原文 */
+export async function compact(state: ChatState): Promise<ChatState> {
+  if (state.messages.length <= COMPACT_AT) return state
+  const old = state.messages.slice(0, state.messages.length - KEEP_RECENT)
+  const recent = state.messages.slice(-KEEP_RECENT)
+  try {
+    const text = await chat(
+      [
+        {
+          role: 'system',
+          content:
+            '把下面的对话压缩成一段简短中文摘要。保留：用户的目标、偏好、已确认的结论、还没解决的问题。不要评论、不要分点、不要超过 200 字。',
+        },
+        {
+          role: 'user',
+          content:
+            (state.summary ? `已有摘要：${state.summary}\n\n` : '') +
+            old.map((m) => `${m.role === 'user' ? '用户' : '助手'}：${m.content}`).join('\n'),
+        },
+      ],
+      0.2,
+    )
+    const summary = `${state.summary ? `${state.summary}\n` : ''}${text}`.slice(-800)
+    return { messages: recent, summary }
+  } catch {
+    return state
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { BarcodeScanner } from '../components/BarcodeScanner'
 import { PhotoRecognizer } from './PhotoRecognizer'
 import { Button, Card, Field, NumberField, Pill, ProgressBar, TextField } from '../components/ui'
@@ -474,55 +474,6 @@ export function FoodDiary({
   /* ------------------------------ 饮食日记 ------------------------------ */
   return (
     <div className="anim-rise pb-4">
-      {editing && (
-        <div className="anim-rise mb-3 space-y-2 rounded-2xl border border-accent/40 bg-surface2/60 p-3">
-          <div className="text-[12px] text-accent">修改这条记录</div>
-          <input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[14px] outline-none"
-            placeholder="食物名称"
-          />
-          <div className="flex items-center gap-2">
-            <div className="w-28">
-              <NumberField value={editGrams} onChange={setEditGrams} suffix="g" min={1} max={2000} className="px-2.5 py-1.5" />
-            </div>
-            <span className="text-[11px] text-muted/60">
-              按比例重算 ≈ {Math.round((editing.kcal / (editing.grams || 1)) * editGrams)} kcal
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-28">
-              <NumberField value={editCost} onChange={setEditCost} suffix="元" min={0} max={9999} className="px-2.5 py-1.5" />
-            </div>
-            <span className="text-[11px] text-muted/60">这一餐花了多少钱（可不填）</span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="soft" className="flex-1" onClick={() => setEditing(null)}>
-              取消
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => {
-                const ratio = editGrams / (editing.grams || 1)
-                updateFoodLog(editing.id, {
-                  name: editName.trim() || editing.name,
-                  grams: editGrams,
-                  cost: editCost,
-                  kcal: Math.round(editing.kcal * ratio),
-                  p: Math.round(editing.p * ratio * 10) / 10,
-                  c: Math.round(editing.c * ratio * 10) / 10,
-                  f: Math.round(editing.f * ratio * 10) / 10,
-                })
-                setEditing(null)
-                setToast('已修改')
-              }}
-            >
-              保存
-            </Button>
-          </div>
-        </div>
-      )}
       <div className="mb-2 flex items-center justify-between rounded-2xl border border-line/60 bg-surface/60 px-2 py-1.5">
         <button
           onClick={() => setViewDate(addDays(viewDate, -1))}
@@ -622,15 +573,15 @@ export function FoodDiary({
             </div>
 
             {openMeal === m.meal && (
-              <div className="mt-2 rounded-xl bg-surface/70 p-2">
+              <div className="mt-2 space-y-2 rounded-xl bg-surface/70 p-2.5">
+                <div className="text-[11px] text-muted">这一餐一共花了（留空就只算单项）</div>
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-[11px] text-muted">这一餐一共花了</span>
-                  <div className="w-24">
-                    <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} className="px-2 py-1" />
+                  <div className="min-w-0 flex-1">
+                    <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} />
                   </div>
                   <Button
                     variant="soft"
-                    className="px-3 py-1.5 text-[11px]"
+                    className="shrink-0 px-4 py-2 text-[12px]"
                     onClick={() => {
                       setMealCost(viewDate, m.meal, costDraft)
                       setOpenMeal(null)
@@ -639,9 +590,9 @@ export function FoodDiary({
                   >
                     保存
                   </Button>
-                  <span className="text-[10px] leading-4 text-muted/50">
-                    填了就按这个算；单项合计 ¥{m.items.reduce((a, x) => a + (x.cost ?? 0), 0).toFixed(2)}
-                  </span>
+                </div>
+                <div className="text-[10px] text-muted/60">
+                  单项合计 ¥{m.items.reduce((a, x) => a + (x.cost ?? 0), 0).toFixed(2)}
                 </div>
               </div>
             )}
@@ -656,7 +607,8 @@ export function FoodDiary({
             ) : (
               <div className="mt-2 space-y-1">
                 {m.items.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between py-0.5">
+                  <Fragment key={it.id}>
+                  <div className="flex items-center justify-between py-0.5">
                     <button
                       onClick={() => {
                         setEditing(it)
@@ -688,6 +640,58 @@ export function FoodDiary({
                       </button>
                     </div>
                   </div>
+
+                  {editing && editing.id === it.id && (
+                    <div className="mb-2 mt-1 space-y-2 rounded-xl border border-accent/40 bg-surface2/50 p-2.5">
+                      <div className="text-[11px] text-accent">修改这一条</div>
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[14px] outline-none"
+                        placeholder="食物名称"
+                      />
+                      <div>
+                        <div className="mb-1 text-[10px] text-muted/60">吃了多少</div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <NumberField value={editGrams} onChange={setEditGrams} suffix="g" min={1} max={2000} />
+                          </div>
+                          <span className="shrink-0 text-[10px] text-muted/60">
+                            ≈ {Math.round((editing.kcal / (editing.grams || 1)) * editGrams)} kcal
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-[10px] text-muted/60">这一条花了多少钱（可不填）</div>
+                        <NumberField value={editCost} onChange={setEditCost} suffix="元" min={0} max={9999} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="soft" className="flex-1" onClick={() => setEditing(null)}>
+                          取消
+                        </Button>
+                        <Button
+                          className="flex-1"
+                          onClick={() => {
+                            const ratio = editGrams / (editing.grams || 1)
+                            updateFoodLog(editing.id, {
+                              name: editName.trim() || editing.name,
+                              grams: editGrams,
+                              cost: editCost,
+                              kcal: Math.round(editing.kcal * ratio),
+                              p: Math.round(editing.p * ratio * 10) / 10,
+                              c: Math.round(editing.c * ratio * 10) / 10,
+                              f: Math.round(editing.f * ratio * 10) / 10,
+                            })
+                            setEditing(null)
+                            setToast('已修改')
+                          }}
+                        >
+                          保存
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </Fragment>
                 ))}
                 {m.items.length > 0 && (
                   <div className="mt-1 space-y-1 border-t border-line/40 pt-1.5">

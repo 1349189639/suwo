@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CircleAction, ProgressBar } from '../components/ui'
+import { ChangelogList } from '../components/UpdateNotice'
 import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
 import { stepsKcal } from '../domain/activity'
@@ -60,6 +61,7 @@ export function Home({
 
   const [talk, setTalk] = useState<string | null>(null)
   const [previewKg, setPreviewKg] = useState<number | null>(null)
+  const [showLog, setShowLog] = useState(false)
 
   const previewBuild =
     previewKg !== null && data.profile
@@ -147,15 +149,41 @@ export function Home({
           </div>
           <h1 className="mt-0.5 text-[21px] font-bold">{greeting()}</h1>
         </div>
-        <button
-          onClick={onStats}
-          className="flex items-center gap-1.5 rounded-full border border-line bg-surface/80 px-3 py-1.5 text-[12px]"
-        >
-          <span>🔥</span>
-          <span className="tabular font-semibold">{streak}</span>
-          <span className="text-muted">天</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowLog(true)}
+            className="rounded-full border border-line bg-surface/80 px-2.5 py-1.5 text-[12px]"
+            aria-label="更新公告"
+          >
+            📣
+          </button>
+          <button
+            onClick={onStats}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface/80 px-3 py-1.5 text-[12px]"
+          >
+            <span>🔥</span>
+            <span className="tabular font-semibold">{streak}</span>
+            <span className="text-muted">天</span>
+          </button>
+        </div>
       </header>
+
+      {showLog && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setShowLog(false)}>
+          <div
+            className="max-h-[82vh] w-full overflow-y-auto rounded-t-3xl border-t border-line bg-canvas px-4 pb-6 pt-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[16px] font-semibold">更新公告</span>
+              <button onClick={() => setShowLog(false)} className="text-[12px] text-muted">
+                关闭
+              </button>
+            </div>
+            <ChangelogList />
+          </div>
+        </div>
+      )}
 
       {/* 场景：小人 + 四周按钮 */}
       <div

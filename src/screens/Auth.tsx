@@ -12,6 +12,7 @@ export function Auth({ onDone }: { onDone: (id: string) => void }) {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [agree, setAgree] = useState(false)
 
   const submit = async () => {
     if (busy) return
@@ -94,7 +95,34 @@ export function Auth({ onDone }: { onDone: (id: string) => void }) {
 
       {error && <p className="mt-3 px-1 text-[12px] text-danger">{error}</p>}
 
-      <Button className="mt-5 w-full" disabled={busy || !name || !password} onClick={() => void submit()}>
+      {mode === 'register' && (
+        <>
+          <label className="mt-4 flex items-start gap-2 text-[12px] leading-5 text-muted">
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#3ddc97]"
+            />
+            <span>
+              我已阅读并同意下面的《隐私说明》，知道我的数据会保存在云端
+            </span>
+          </label>
+
+          <details className="mt-2 rounded-xl border border-line/60 bg-surface2/30 px-3 py-2 text-[11px] leading-5 text-muted/80">
+            <summary className="cursor-pointer text-[12px] text-accent/80">隐私说明</summary>
+            <div className="mt-2 space-y-1.5">
+              <p><b>我们收集：</b>邮箱、身高体重年龄性别，以及你自己记录的饮食、运动、饮水、花费。</p>
+              <p><b>存在哪：</b>腾讯云（中国境内机房），只有你的账号能读写自己的数据。</p>
+              <p><b>用来做什么：</b>只用于给你算热量、出统计和建议。不做广告定向，不卖给任何第三方。</p>
+              <p><b>你的权利：</b>随时可以在「我的 → 数据」导出全部记录；随时可以删除账号，删除后数据一并清除。</p>
+              <p><b>不会收集：</b>通讯录、短信、位置、相册原图（拍照识图只在识别时上传，不长期保存）。</p>
+            </div>
+          </details>
+        </>
+      )}
+
+      <Button className="mt-5 w-full" disabled={busy || !name || !password || (mode === 'register' && !agree)} onClick={() => void submit()}>
         {busy ? '处理中…' : mode === 'register' ? '注册并开始' : '登录'}
       </Button>
 

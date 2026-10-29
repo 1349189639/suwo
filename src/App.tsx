@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
+import { UpdateNotice } from './components/UpdateNotice'
 import { readDemoParams } from './data/demo'
 import { currentAccountId } from './data/auth'
 import { useStore } from './data/store'
@@ -64,6 +65,7 @@ export default function App() {
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-24">
+      <UpdateNotice />
       {tab === 'home' && (
         <Home
           onFood={() => setSheet('food')}

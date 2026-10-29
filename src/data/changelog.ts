@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.7.1'
+﻿export const CURRENT_VERSION = '0.7.2'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,15 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.2',
+    date: '2026-10-29',
+    title: '同步更稳，步数自动更新',
+    items: [
+      '点右上角手动同步时，先把云端另一台设备的新记录拉下来合并，再推送本机改动，不会只推不拉',
+      '步数每 20 秒自动刷新一次，App 切回前台、窗口重新获得焦点时也会立即补同步',
+    ],
+  },
   {
     version: '0.7.1',
     date: '2026-10-29',

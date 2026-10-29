@@ -69,7 +69,7 @@ interface Store {
   cloudLogout: () => Promise<void>
   cloudChangePassword: (oldPassword: string, newPassword: string) => Promise<void>
   cloudDeleteAccount: (password: string) => Promise<void>
-  /** 手动触发一次云端推送。 */
+  /** 手动双向同步：先拉取云端最新并与本地合并写回，再把合并结果推送上去。 */
   syncNow: () => Promise<void>
 }
 
@@ -308,7 +308,21 @@ export const useStore = create<Store>((set, get) => {
     },
 
     syncNow: async () => {
+      const user = get().cloudUser
+      if (!user) return
+      set({ syncStatus: 'syncing' })
+      // 先拉取云端最新，与本地离线副本三向合并（bootstrapForUser 内部已写本地缓存）
+      const result = await bootstrapForUser(user)
+      // 合并结果写回 store，并同步落本地主存储，避免刷新页面 loadData() 丢掉刚拉下来的远端记录
+      set({ data: result.data })
+      saveData(result.data)
+      writeLocalCache(user.uid, result.data)
+      // 再把合并后的整档推上去，保证另一台设备的新记录不会只留在本机
       await pushOnce()
+      // pushOnce 内部吞掉了网络错误并把状态置为 offline/error；这里把失败抛给界面，便于按钮提示「同步失败」
+      if (get().syncStatus === 'offline' || get().syncStatus === 'error') {
+        throw new Error('云端同步失败')
+      }
     },
   }
 })

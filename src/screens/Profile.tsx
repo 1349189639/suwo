@@ -5,6 +5,7 @@ import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
 import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
+import { readStepsDebug, type StepDebug } from '../data/steps'
 import { downloadText, toCsv } from '../data/export'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
@@ -56,6 +57,7 @@ export function ProfileScreen({
   const weight = latestWeight(data) ?? goal?.startWeightKg ?? 70
 
   const [showCloud, setShowCloud] = useState(false)
+  const [stepDbg, setStepDbg] = useState<StepDebug | null>(null)
   const [showPwd, setShowPwd] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [pwdOld, setPwdOld] = useState('')
@@ -436,6 +438,24 @@ export function ProfileScreen({
           <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
             云连接自检（开发调试）
           </Button>
+          <Button
+            variant="soft"
+            className="mt-1 w-full"
+            onClick={async () => {
+              const d = await readStepsDebug()
+              setStepDbg(d)
+              setToast(d.error ? `步数异常：${d.error}` : `步数 ${d.steps ?? '—'}（原始 ${d.total ?? '—'}）`)
+            }}
+          >
+            步数诊断
+          </Button>
+          {stepDbg && (
+            <div className="mt-1 rounded-xl bg-surface2/50 p-2 text-[10px] leading-4 text-muted/70">
+              原生壳：{String(stepDbg.native)} · 传感器：{String(stepDbg.available)} · 今日：
+              {String(stepDbg.steps)} · 原始累计：{String(stepDbg.total)}
+              {stepDbg.error ? ` · 错误：${stepDbg.error}` : ''}
+            </div>
+          )}
           {showCloud && <CloudCheck onClose={() => setShowCloud(false)} />}
         </Card>
       </div>

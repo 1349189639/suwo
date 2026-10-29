@@ -42,6 +42,7 @@ public class StepCounterPlugin extends Plugin implements SensorEventListener {
     private static final String PREFS = "suwo_steps";
     private static final String KEY_DATE = "date";
     private static final String KEY_BASE = "base";
+    private static final String KEY_LAST = "last";
 
     private SensorManager sensorManager;
     private Sensor stepSensor;
@@ -209,6 +210,9 @@ public class StepCounterPlugin extends Plugin implements SensorEventListener {
             c.bootToday = true;
             c.branch = "todayBoot";
             c.steps = Math.max(0, (long) latest);
+            SharedPreferences p0 = getContext().getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE);
+            String d0 = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            p0.edit().putString(KEY_DATE, d0).putFloat(KEY_BASE, 0f).putFloat(KEY_LAST, latest).apply();
             return c;
         }
 
@@ -221,19 +225,35 @@ public class StepCounterPlugin extends Plugin implements SensorEventListener {
         boolean newDay = !today.equals(c.savedDate);
         boolean rebooted = c.base < 0 || latest < c.base;
 
+        float last = prefs.getFloat(KEY_LAST, -1f);
+
         if (newDay) {
-            c.branch = "baselineNewDay";
-            prefs.edit().putString(KEY_DATE, today).putFloat(KEY_BASE, latest).apply();
-            c.base = latest;
-            c.steps = 0;
+            // 新的一天：基准取「昨天最后一次读到的值」。
+            // 这样今天早上没打开 App 之前走的步数也能算进来（旧逻辑会把它们算进基准、永久丢失）。
+            boolean usePrev = last >= 0f && last <= latest;
+            float newBase = usePrev ? last : latest;
+            c.branch = usePrev ? "baselineNewDay(prevLast)" : "baselineNewDay(fallback)";
+            prefs.edit()
+                .putString(KEY_DATE, today)
+                .putFloat(KEY_BASE, newBase)
+                .putFloat(KEY_LAST, latest)
+                .apply();
+            c.base = newBase;
+            c.steps = Math.max(0, (long) (latest - newBase));
         } else if (rebooted) {
             c.branch = "baselineRebooted";
-            prefs.edit().putString(KEY_DATE, today).putFloat(KEY_BASE, latest).apply();
+            prefs.edit()
+                .putString(KEY_DATE, today)
+                .putFloat(KEY_BASE, latest)
+                .putFloat(KEY_LAST, latest)
+                .apply();
             c.base = latest;
             c.steps = 0;
         } else {
             c.branch = "baselineDiff";
             c.steps = Math.max(0, (long) (latest - c.base));
+            // 每次都记住最新值，留给明天当基准
+            prefs.edit().putFloat(KEY_LAST, latest).apply();
         }
         return c;
     }

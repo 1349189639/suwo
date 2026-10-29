@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CircleAction, ProgressBar } from '../components/ui'
 import { ChangelogList } from '../components/UpdateNotice'
+import { Coach } from './Coach'
 import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
 import { stepsKcal } from '../domain/activity'
@@ -62,6 +63,7 @@ export function Home({
   const [talk, setTalk] = useState<string | null>(null)
   const [previewKg, setPreviewKg] = useState<number | null>(null)
   const [showLog, setShowLog] = useState(false)
+  const [showCoach, setShowCoach] = useState(false)
   const syncStatus = useStore((s) => s.syncStatus)
   const syncNow = useStore((s) => s.syncNow)
   const [syncing, setSyncing] = useState(false)
@@ -185,6 +187,13 @@ export function Home({
             {syncing ? '…' : '↻'}
           </button>
           <button
+            onClick={() => setShowCoach(true)}
+            className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-[12px]"
+            aria-label="问教练"
+          >
+            🤖
+          </button>
+          <button
             onClick={() => setShowLog(true)}
             className="rounded-full border border-line bg-surface/80 px-2.5 py-1.5 text-[12px]"
             aria-label="更新公告"
@@ -224,6 +233,8 @@ export function Home({
           }[syncStatus]}
         </div>
       )}
+
+      {showCoach && <Coach onClose={() => setShowCoach(false)} />}
 
       {showLog && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setShowLog(false)}>

@@ -131,7 +131,7 @@ function parseItems(text: string): VisionItem[] {
     .filter((it) => it.name !== '' && it.kcal > 0)
 }
 
-async function chat(messages: unknown[]): Promise<string> {
+export async function chat(messages: unknown[], temperature = 0.1): Promise<string> {
   const cfg = loadVisionConfig()
   if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) {
     throw new VisionError('还没配置识别服务，去「我的 → AI 识图」填一下')
@@ -142,7 +142,7 @@ async function chat(messages: unknown[]): Promise<string> {
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
-      body: JSON.stringify({ model: cfg.model, temperature: 0.1, messages }),
+      body: JSON.stringify({ model: cfg.model, temperature, messages }),
     })
   } catch {
     throw new VisionError('连不上识别服务。可能是网络问题，或服务商不允许浏览器直连（CORS）')

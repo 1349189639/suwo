@@ -156,3 +156,15 @@ export function estimateFinishDate(weightKg: number, target: number, delta: numb
   d.setDate(d.getDate() + days)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+/** 饮水目标：35ml/kg，训练日按消耗补水（每 100kcal 约 120ml），上限 4.5L */
+export function waterTargetMl(weightKg: number, exerciseKcal = 0): number {
+  const base = 35 * weightKg
+  const extra = Math.min(800, Math.round(exerciseKcal * 1.2))
+  return Math.round(Math.min(4500, Math.max(1500, base + extra)))
+}
+
+/** 膳食纤维目标：0.35g/kg（约等于每 1000kcal 14g），限制在 20–40g */
+export function fiberTargetG(weightKg: number): number {
+  return Math.round(Math.min(40, Math.max(20, 0.35 * weightKg)))
+}

@@ -7,7 +7,7 @@ import { stepsKcal } from '../domain/activity'
 import { stageInfo } from '../domain/avatar'
 import { bodyState, currentSpirit, currentStreak, summarizeDay, targetsFor } from '../domain/day'
 import { buildFromBmi } from '../domain/avatar'
-import { calcBmi } from '../domain/nutrition'
+import { calcBmi, fiberTargetG, waterTargetMl } from '../domain/nutrition'
 import { formatCN, todayKey, weekdayCN } from '../domain/date'
 import { defaultLook } from '../domain/look'
 import { MEAL_LABEL } from '../domain/types'
@@ -284,8 +284,14 @@ export function Home({
           { label: '蛋白', v: day.intake.p, t: targets.p, c: '#63a4ff' },
           { label: '碳水', v: day.intake.c, t: targets.c, c: '#f5b942' },
           { label: '脂肪', v: day.intake.f, t: targets.f, c: '#ff9f6b' },
-          { label: '纤维', v: day.fiber, t: 25, c: '#7bd88f' },
-          { label: '水分', v: day.water + day.foodWater, t: 2500, c: '#63c7ff', u: 'ml' },
+          { label: '纤维', v: day.fiber, t: fiberTargetG(body?.weight ?? 60), c: '#7bd88f' },
+          {
+            label: '水分',
+            v: day.water + day.foodWater,
+            t: waterTargetMl(body?.weight ?? 60, Math.max(0, day.budget - targets.kcal)),
+            c: '#63c7ff',
+            u: 'ml',
+          },
         ].map((m) => (
           <div key={m.label} className="rounded-2xl border border-line/60 bg-surface/70 p-2.5">
             <div className="flex items-baseline justify-between">
@@ -301,6 +307,9 @@ export function Home({
           </div>
         ))}
       </div>
+      <p className="mt-1.5 px-1 text-[10px] text-muted/40">
+        目标按你的体重 {body?.weight ?? 60}kg 推算（蛋白 1.8g/kg · 脂肪 0.8g/kg · 纤维 0.35g/kg · 饮水 35ml/kg）
+      </p>
 
       {/* 步数 */}
       <button

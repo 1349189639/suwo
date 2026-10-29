@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react'
+  const [showCloud, setShowCloud] = useState(false)
 import { Avatar } from '../components/Avatar'
 import { Button, Card, Field, NumberInput, Pill, SectionTitle, Segmented } from '../components/ui'
 import { currentAccount, logout } from '../data/auth'
 import { useStore } from '../data/store'
+import { CloudCheck } from './CloudCheck'
 import { downloadText, toCsv } from '../data/export'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
@@ -373,6 +375,10 @@ export function ProfileScreen({
           >
             退出登录 / 换账号
           </Button>
+          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
+            云连接自检（开发中）
+          </Button>
+          {showCloud && <CloudCheck onClose={() => setShowCloud(false)} />}
         </Card>
 
       </div>

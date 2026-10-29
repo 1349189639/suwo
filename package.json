@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@cloudbase/js-sdk": "^3.10.4",
     "@zxing/library": "^0.23.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

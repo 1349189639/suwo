@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-  const [showCloud, setShowCloud] = useState(false)
 import { Avatar } from '../components/Avatar'
-import { Button, Card, Field, NumberInput, Pill, SectionTitle, Segmented } from '../components/ui'
-import { currentAccount, logout } from '../data/auth'
+import { Button, Card, Field, NumberInput, Pill, SectionTitle, Segmented, Sheet, inputClass } from '../components/ui'
+import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
+import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
 import { downloadText, toCsv } from '../data/export'
 import { exportJson } from '../data/storage'
@@ -44,10 +44,37 @@ export function ProfileScreen({
   const reset = useStore((s) => s.reset)
   const setToast = useStore((s) => s.setToast)
 
+  const cloudUser = useStore((s) => s.cloudUser)
+  const syncStatus = useStore((s) => s.syncStatus)
+  const cloudLogout = useStore((s) => s.cloudLogout)
+  const cloudChangePassword = useStore((s) => s.cloudChangePassword)
+  const cloudDeleteAccount = useStore((s) => s.cloudDeleteAccount)
+  const syncNow = useStore((s) => s.syncNow)
+
   const profile = data.profile!
   const goal = data.goal
   const weight = latestWeight(data) ?? goal?.startWeightKg ?? 70
 
+  const [showCloud, setShowCloud] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [pwdOld, setPwdOld] = useState('')
+  const [pwdNew, setPwdNew] = useState('')
+  const [pwdConfirm, setPwdConfirm] = useState('')
+  const [pwdBusy, setPwdBusy] = useState(false)
+  const [pwdError, setPwdError] = useState<string | null>(null)
+  const [delPwd, setDelPwd] = useState('')
+  const [delBusy, setDelBusy] = useState(false)
+  const [delError, setDelError] = useState<string | null>(null)
+
+  const syncLabel: Record<SyncStatus, string> = {
+    idle: '未连接',
+    syncing: '正在同步…',
+    synced: '已同步到云端',
+    dirty: '有改动待上传',
+    offline: '离线，联网后自动上传',
+    error: '同步异常，点此重试',
+  }
   const [editProfile, setEditProfile] = useState(false)
   const [form, setForm] = useState<Profile>(profile)
   const [weightInput, setWeightInput] = useState(weight)
@@ -356,32 +383,129 @@ export function ProfileScreen({
             }}
           />
           <p className="text-[10.5px] leading-4 text-muted/50">
-            CSV 用 WPS / Numbers / Excel 打开就是表格；JSON 备份用于换设备时完整恢复。数据只存在这台设备的浏览器里，建议每周导出一次。
+            CSV 用 WPS / Numbers / Excel 打开就是表格；JSON 备份用于完整归档。日常记录会自动同步到云端，换机登录同一账号即可恢复。
           </p>
         </Card>
       </div>
 
       <div className="mt-4 mb-6">
-        <SectionTitle>账号</SectionTitle>
+        <SectionTitle>账号与同步</SectionTitle>
         <Card className="space-y-2">
-          <Row label="当前账号" value={currentAccount()?.name ?? '未登录'} />
+          <Row label="当前账号" value={cloudUser?.username ?? cloudUser?.email ?? '未登录'} />
+          <button
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => {
+              if (syncStatus === 'error' || syncStatus === 'dirty' || syncStatus === 'offline') {
+                void syncNow()
+              }
+            }}
+          >
+            <span className="text-[12.5px] text-muted">云端状态</span>
+            <span
+              className={`tabular text-[13px] ${
+                syncStatus === 'synced'
+                  ? 'text-accent'
+                  : syncStatus === 'syncing' || syncStatus === 'idle'
+                    ? 'text-ink'
+                    : 'text-amber-300'
+              }`}
+            >
+              {syncLabel[syncStatus]}
+            </span>
+          </button>
           <Button
             variant="soft"
             className="mt-1 w-full"
             onClick={() => {
-              logout()
-              onLoggedOut()
+              void cloudLogout().then(() => onLoggedOut())
             }}
           >
-            退出登录 / 换账号
+            退出登录
           </Button>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button variant="soft" onClick={() => { setPwdError(null); setShowPwd(true) }}>
+              修改密码
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => { setDelError(null); setShowDelete(true) }}
+            >
+              删除账号
+            </Button>
+          </div>
           <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
-            云连接自检（开发中）
+            云连接自检（开发调试）
           </Button>
           {showCloud && <CloudCheck onClose={() => setShowCloud(false)} />}
         </Card>
-
       </div>
+
+      <Sheet open={showPwd} title="修改密码" subtitle="需输入当前密码校验身份" onClose={() => setShowPwd(false)}>
+        <div className="space-y-3">
+          <Field label="当前密码">
+            <input className={inputClass} type="password" autoComplete="current-password" value={pwdOld} onChange={(e) => setPwdOld(e.target.value)} />
+          </Field>
+          <Field label="新密码" hint="至少 6 位">
+            <input className={inputClass} type="password" autoComplete="new-password" value={pwdNew} onChange={(e) => setPwdNew(e.target.value)} />
+          </Field>
+          <Field label="确认新密码">
+            <input className={inputClass} type="password" autoComplete="new-password" value={pwdConfirm} onChange={(e) => setPwdConfirm(e.target.value)} />
+          </Field>
+          {pwdError && <div className="rounded-2xl bg-danger/10 px-4 py-3 text-[13px] text-danger">{pwdError}</div>}
+          <Button
+            className="w-full"
+            disabled={pwdBusy}
+            onClick={async () => {
+              if (pwdNew.length < 6) { setPwdError('新密码至少 6 位'); return }
+              if (pwdNew !== pwdConfirm) { setPwdError('两次输入的新密码不一致'); return }
+              setPwdBusy(true); setPwdError(null)
+              try {
+                await cloudChangePassword(pwdOld, pwdNew)
+                setToast('密码已修改')
+                setShowPwd(false); setPwdOld(''); setPwdNew(''); setPwdConfirm('')
+              } catch (e) {
+                setPwdError(explainError(e))
+              } finally {
+                setPwdBusy(false)
+              }
+            }}
+          >
+            {pwdBusy ? '提交中…' : '确认修改'}
+          </Button>
+        </div>
+      </Sheet>
+
+      <Sheet open={showDelete} title="删除账号" subtitle="账号和云端记录将一并删除，不可恢复" onClose={() => setShowDelete(false)}>
+        <div className="space-y-3">
+          <p className="text-[13px] leading-relaxed text-muted">
+            删除后云端账号、饮食/运动/体重等记录都会清除，且无法找回。请输入当前账号密码确认。
+          </p>
+          <Field label="当前密码">
+            <input className={inputClass} type="password" autoComplete="current-password" value={delPwd} onChange={(e) => setDelPwd(e.target.value)} />
+          </Field>
+          {delError && <div className="rounded-2xl bg-danger/10 px-4 py-3 text-[13px] text-danger">{delError}</div>}
+          <Button
+            variant="danger"
+            className="w-full"
+            disabled={delBusy}
+            onClick={async () => {
+              if (!delPwd) { setDelError('请输入密码'); return }
+              setDelBusy(true); setDelError(null)
+              try {
+                await cloudDeleteAccount(delPwd)
+                setToast('账号已删除')
+                onLoggedOut()
+              } catch (e) {
+                setDelError(explainError(e))
+              } finally {
+                setDelBusy(false)
+              }
+            }}
+          >
+            {delBusy ? '删除中…' : '永久删除账号'}
+          </Button>
+        </div>
+      </Sheet>
 
       <div className="mt-4 mb-6">
         <SectionTitle>关于</SectionTitle>
@@ -396,7 +520,7 @@ export function ProfileScreen({
             variant="danger"
             className="mt-1 w-full"
             onClick={() => {
-              if (!confirm('会清空所有本机数据，确定？')) return
+              if (!confirm('会清空本机缓存并重新从云端拉取，确定？')) return
               reset()
             }}
           >

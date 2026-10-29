@@ -10,13 +10,21 @@ import type {
   Goal,
   Profile,
 } from '../domain/types'
-import { currentAccountId } from './auth'
-import { seedDemoIfNeeded } from './demo'
 import { clearData, emptyData, importJson, loadData, saveData, setActiveAccount } from './storage'
+import { seedDemoIfNeeded } from './demo'
+import * as cloud from './cloud.v2'
+import type { CloudUser } from './cloud.v2'
+import {
+  bootstrapForUser,
+  pushToCloud,
+  readLocalCache,
+  writeLocalCache,
+  markDirty,
+  type SyncStatus,
+} from './sync'
 
-// 先按当前登录账号切换数据命名空间，再决定要不要灌演示数据
-setActiveAccount(currentAccountId())
-seedDemoIfNeeded()
+// 模块加载期：云端会话尚未恢复，先以匿名命名空间启动；登录后由 cloudLogin / cloudBootstrap 切换。
+setActiveAccount(null)
 
 let uid = 0
 function nextId(prefix: string): string {
@@ -29,6 +37,8 @@ interface Store {
   data: AppData
   toast: string | null
   setToast: (msg: string | null) => void
+
+  // ===== 原有业务方法（签名保持不变，禁止改名） =====
   saveProfile: (profile: Profile, weightKg: number) => void
   saveGoal: (goal: Goal) => void
   logWeight: (kg: number, date?: string) => void
@@ -46,17 +56,77 @@ interface Store {
   switchAccount: (id: string | null) => void
   replaceData: (text: string) => boolean
   reset: () => void
+
+  // ===== 云端会话与同步（新增，只增不改旧方法） =====
+  cloudUser: CloudUser | null
+  syncStatus: SyncStatus
+  bootstrapping: boolean
+  /** 页面启动：恢复云端已有会话并拉取/合并数据。无会话则保持未登录。 */
+  cloudBootstrap: () => Promise<void>
+  /** 云端账号密码登录，首次登录自动合并旧本地数据。 */
+  cloudLogin: (account: string, password: string) => Promise<void>
+  /** 退出云端登录并清掉本机离线副本。 */
+  cloudLogout: () => Promise<void>
+  cloudChangePassword: (oldPassword: string, newPassword: string) => Promise<void>
+  cloudDeleteAccount: (password: string) => Promise<void>
+  /** 手动触发一次云端推送。 */
+  syncNow: () => Promise<void>
 }
 
+/** 推送并发控制：上一次推送未结束时不重复发；期间又有改动则记一个待补推标记。 */
+let pushing = false
+let repushPending = false
+
 export const useStore = create<Store>((set, get) => {
+  /** 写本地（旧命名空间 + 云端离线缓存），标记 dirty，并尝试异步推送。 */
   const commit = (data: AppData) => {
     saveData(data)
+    const user = get().cloudUser
+    if (user) {
+      writeLocalCache(user.uid, data)
+      markDirty(true)
+      set({ syncStatus: 'dirty' })
+    }
+    // 必须先把最新整档写进 store，再触发推送；否则 pushOnce 内 get().data 读到的还是旧快照，
+    // 新记录只进了本地缓存、云端却收到旧数据（数组类记录会被“漏掉”）。
     set({ data })
+    if (user) void pushOnce()
+  }
+
+  async function pushOnce(): Promise<void> {
+    const user = get().cloudUser
+    if (!user) return
+    if (pushing) {
+      // 上一次还在推：记下"结束后要再补推一次最新状态"，避免最后一次改动被丢弃。
+      repushPending = true
+      return
+    }
+    pushing = true
+    try {
+      set({ syncStatus: 'syncing' })
+      // 始终推送当前最新的整档，而不是入队时的快照
+      await pushToCloud(user, get().data)
+      markDirty(false)
+      set({ syncStatus: 'synced' })
+    } catch (e) {
+      console.error('云端推送失败，保留本地待下次同步', e)
+      markDirty(true)
+      set({ syncStatus: 'offline' })
+    } finally {
+      pushing = false
+      if (repushPending) {
+        repushPending = false
+        void pushOnce()
+      }
+    }
   }
 
   return {
     data: loadData(),
     toast: null,
+    cloudUser: null,
+    syncStatus: 'idle',
+    bootstrapping: true,
 
     setToast: (msg) => set({ toast: msg }),
 
@@ -150,6 +220,7 @@ export const useStore = create<Store>((set, get) => {
     },
 
     switchAccount: (id) => {
+      // 兼容旧本地账号入口；云端流程以 cloudLogin / cloudLogout 为准。
       setActiveAccount(id)
       set({ data: loadData() })
     },
@@ -165,7 +236,82 @@ export const useStore = create<Store>((set, get) => {
 
     reset: () => {
       clearData()
-      set({ data: emptyData() })
+      const empty = emptyData()
+      set({ data: empty })
+      const user = get().cloudUser
+      if (user) writeLocalCache(user.uid, empty)
+    },
+
+    // ===== 云端 =====
+
+    cloudBootstrap: async () => {
+      set({ bootstrapping: true })
+      try {
+        const user = await cloud.currentUser()
+        if (!user) {
+          set({ cloudUser: null, syncStatus: 'idle', bootstrapping: false })
+          return
+        }
+        setActiveAccount(user.uid)
+        const result = await bootstrapForUser(user)
+        set({ cloudUser: user, data: result.data, syncStatus: 'synced', bootstrapping: false })
+        seedDemoIfNeeded()
+        const after = get().data
+        writeLocalCache(user.uid, after)
+        // 首次迁移或本地有未推数据时，补推一次
+        markDirty(true)
+        await pushOnce()
+      } catch (e) {
+        console.error('启动恢复云端会话失败', e)
+        set({ bootstrapping: false, syncStatus: 'error' })
+      }
+    },
+
+    cloudLogin: async (account, password) => {
+      const user = await cloud.signIn(account, password)
+      setActiveAccount(user.uid)
+      const result = await bootstrapForUser(user)
+      set({ cloudUser: user, data: result.data, syncStatus: 'syncing' })
+      seedDemoIfNeeded()
+      writeLocalCache(user.uid, get().data)
+      await pushOnce()
+    },
+
+    cloudLogout: async () => {
+      try {
+        await cloud.signOut()
+      } catch (e) {
+        console.warn('云端登出接口报错，本地仍清理会话', e)
+      }
+      const user = get().cloudUser
+      if (user) {
+        try {
+          localStorage.removeItem(`suwo:cloud:${user.uid}`)
+        } catch {
+          /* 忽略 */
+        }
+      }
+      markDirty(false)
+      setActiveAccount(null)
+      clearData()
+      set({ cloudUser: null, data: emptyData(), syncStatus: 'idle' })
+    },
+
+    cloudChangePassword: async (oldPassword, newPassword) => {
+      await cloud.changePassword(oldPassword, newPassword)
+    },
+
+    cloudDeleteAccount: async (password) => {
+      await cloud.deleteCloudAccount(password)
+      // 删号成功后走一遍登出清理
+      await get().cloudLogout()
+    },
+
+    syncNow: async () => {
+      await pushOnce()
     },
   }
 })
+
+// 供组件读取同步状态时复用；本地缓存读取辅助导出，避免界面重复拼 localStorage key。
+export { readLocalCache }

@@ -1,0 +1,198 @@
+/**
+ * 塑我 · 腾讯云开发 CloudBase 连接层 v2（2026-10-29）
+ *
+ * 与 v1（data/cloud.ts）的区别：
+ * - 使用真实完整环境 ID、region、前端 publishable key（accessKey）初始化；
+ * - 认证走 v3（supabase-like）API：signInWithPassword / getSession / signOut；
+ * - 会话判断只认 auth.getSession() 的 data.session，不再使用已废弃的 getLoginState；
+ * - 旧 v1 文件保留不动，本文件为新版本，便于回退对比。
+ *
+ * 说明：publishable key 是前端公开标识，不是服务端密钥；值从 .env 注入，缺省回退内置。
+ */
+import cloudbase from '@cloudbase/js-sdk'
+
+/** 完整环境 ID（可公开，不是密钥） */
+export const CLOUD_ENV =
+  (import.meta.env.VITE_CLOUD_ENV as string | undefined) ?? 'suwo-fitnessapp-d7fn2a359e4760f8'
+
+const REGION = (import.meta.env.VITE_CLOUD_REGION as string | undefined) ?? 'ap-shanghai'
+const ACCESS_KEY = (import.meta.env.VITE_CLOUD_ACCESS_KEY as string | undefined) ?? ''
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cached: any = null
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function app(): any {
+  if (!cached) {
+    cached = cloudbase.init({
+      env: CLOUD_ENV,
+      region: REGION,
+      accessKey: ACCESS_KEY,
+      persistence: 'local',
+      auth: { detectSessionInUrl: true },
+    })
+  }
+  return cached
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function auth(): any {
+  return app().auth({ persistence: 'local' })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function db(): any {
+  return app().database()
+}
+
+export interface CloudUser {
+  uid: string
+  email?: string
+  username?: string
+}
+
+/** 把 SDK / 网关报错翻译成人话，并指出该去哪一项排查 */
+export function explainError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e)
+  const s = raw.toLowerCase()
+
+  if (s.includes('cors') || s.includes('domain') || s.includes('origin') || s.includes('非法域名') || s.includes('安全域名') || s.includes('安全来源')) {
+    return `页面来源不在白名单（CORS）：当前网页域名未被云开发放行。请确认页面运行在已授权的托管域名上。原始错误：${raw}`
+  }
+  if (s.includes('401') || s.includes('unauthorized') || s.includes('未登录') || s.includes('登录态') || s.includes('session')) {
+    return `当前未登录或登录态已失效：先完成密码登录再读写云端数据。原始错误：${raw}`
+  }
+  if (s.includes('permission') || s.includes('权限') || s.includes('denied') || s.includes('forbidden')) {
+    return `数据库权限不足：集合 appdata 设为「仅创建者可读写」，只能读写本人数据。原始错误：${raw}`
+  }
+  if (s.includes('password') || s.includes('密码') || s.includes('invalid credentials') || s.includes('账号或密码')) {
+    return `账号或密码不正确。原始错误：${raw}`
+  }
+  if (s.includes('network') || s.includes('timeout') || s.includes('fetch') || s.includes('failed to fetch')) {
+    return `网络不通：检查手机/电脑联网，或当前域名被拦截。原始错误：${raw}`
+  }
+  return raw
+}
+
+function toUser(sessionUser: any): CloudUser | null {
+  if (!sessionUser) return null
+  const uid = sessionUser.id ?? sessionUser.uid ?? sessionUser.sub
+  if (!uid) return null
+  return {
+    uid: String(uid),
+    email: sessionUser.email ?? undefined,
+    username: sessionUser.username ?? sessionUser.user_metadata?.username ?? undefined,
+  }
+}
+
+/** 密码登录（用户名 / 邮箱 二选一标识）。先按用户名尝试，失败且看起来是邮箱时再按邮箱重试。 */
+export async function signIn(account: string, password: string): Promise<CloudUser> {
+  const a = auth()
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.trim())
+
+  let res: any
+  if (isEmail) {
+    res = await a.signInWithPassword({ email: account.trim(), password })
+    if (res?.error) {
+      // 部分环境把邮箱当 username 处理，回退一次
+      res = await a.signInWithPassword({ username: account.trim(), password })
+    }
+  } else {
+    res = await a.signInWithPassword({ username: account.trim(), password })
+  }
+
+  if (res?.error) throw new Error(res.error.message ?? res.error.code ?? '登录失败')
+
+  const user = toUser(res.data?.user) ?? toUser(res.data?.session?.user)
+  if (!user) throw new Error('登录成功但没有拿到用户信息，请检查登录方式配置')
+  return user
+}
+
+export async function signOut(): Promise<void> {
+  const res = await auth().signOut()
+  if (res?.error) throw new Error(res.error.message ?? '退出失败')
+}
+
+/** 当前登录用户；未登录返回 null。只认 getSession 的真实会话。 */
+export async function currentUser(): Promise<CloudUser | null> {
+  const res = await auth().getSession()
+  if (res?.error) return null
+  return toUser(res.data?.session?.user)
+}
+
+/** 读整档数据（当前阶段：一份文档，后续再拆表） */
+export async function loadDoc(uid: string): Promise<Record<string, unknown> | null> {
+  const res = await db().collection('appdata').doc(uid).get()
+  const d = res?.data
+  const row = Array.isArray(d) ? d[0] : d
+  const doc = row?.doc
+  return doc && typeof doc === 'object' ? (doc as Record<string, unknown>) : null
+}
+
+export async function saveDoc(uid: string, doc: unknown): Promise<void> {
+  await db()
+    .collection('appdata')
+    .doc(uid)
+    .set({ doc, updated_at: Date.now() })
+}
+
+export interface CheckResult {
+  name: string
+  ok: boolean
+  detail: string
+}
+
+/** 连接自检：逐项报告卡在哪一层。未登录时不强行测数据库读写。 */
+export async function selfCheck(): Promise<CheckResult[]> {
+  const out: CheckResult[] = []
+
+  // 1. SDK 初始化
+  try {
+    app()
+    out.push({ name: 'SDK 初始化', ok: true, detail: `环境 ${CLOUD_ENV}（${REGION}）` })
+  } catch (e) {
+    out.push({ name: 'SDK 初始化', ok: false, detail: explainError(e) })
+    return out
+  }
+
+  // 2. 登录接口是否存在
+  try {
+    const a = auth()
+    const hasPwd = typeof a.signInWithPassword === 'function'
+    const hasSession = typeof a.getSession === 'function'
+    out.push({
+      name: '密码登录接口',
+      ok: hasPwd && hasSession,
+      detail: hasPwd ? 'v3 密码登录 / 会话接口可用' : 'SDK 缺少 signInWithPassword 方法',
+    })
+  } catch (e) {
+    out.push({ name: '密码登录接口', ok: false, detail: explainError(e) })
+  }
+
+  // 3. 登录态
+  try {
+    const u = await currentUser()
+    out.push({
+      name: '登录态',
+      ok: true,
+      detail: u ? `已登录 ${u.email ?? u.username ?? u.uid}` : '未登录（正常，可在下方试登录）',
+    })
+  } catch (e) {
+    out.push({ name: '登录态', ok: false, detail: explainError(e) })
+  }
+
+  // 4. 数据库：仅在已登录后测读写；未登录只探测集合是否存在
+  try {
+    const u = await currentUser()
+    if (!u) {
+      out.push({ name: '数据库读写', ok: true, detail: '需登录后检测（仅创建者可读写）' })
+      return out
+    }
+    await db().collection('appdata').doc(u.uid).get()
+    out.push({ name: '数据库读取', ok: true, detail: 'appdata 本人文档可访问' })
+  } catch (e) {
+    out.push({ name: '数据库读取', ok: false, detail: explainError(e) })
+  }
+
+  return out
+}

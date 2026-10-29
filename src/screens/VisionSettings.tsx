@@ -15,7 +15,7 @@ export function VisionSettings() {
         <div className="text-[12.5px] text-ink">拍照后自动记录，靠的是视觉大模型</div>
         <p className="mt-1 text-[10.5px] leading-4 text-muted/60">
           默认已经填好 DeepSeek 的 <span className="text-ink">deepseek-flash</span>（支持图片），
-          <span className="text-ink">你只需要把 API Key 粘进来</span>。Key 只存这台手机，不会上传到别处。
+          <span className="text-ink">你只需要把 API Key 粘进来</span>。Key 只存这台手机、不随账号同步，也不会传给我们的服务器。
         </p>
       </div>
 

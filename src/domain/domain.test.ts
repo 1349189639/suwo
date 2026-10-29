@@ -17,6 +17,7 @@ import {
 import type { AppData, Goal, Profile } from './types'
 import { summarizeDay, summarizeWeek } from './day'
 import { normalize } from '../data/storage'
+import { mergeAppData } from '../data/sync'
 
 const NOW = new Date(2026, 9, 24)
 
@@ -391,5 +392,89 @@ describe('存储归一化', () => {
     expect(n.customFoods[0].per100.water).toBe(90)
     expect(n.water?.['2026-01-01']).toBe(500)
     expect(n.mealCosts?.['2026-01-01:breakfast']).toBe(40)
+  })
+})
+
+describe('存储归一化 · 计件单位', () => {
+  it('自定义食物的 unit / unitGrams 重启后仍保留', () => {
+    const raw = {
+      schema: 1,
+      profile: null,
+      goal: null,
+      weights: [],
+      foodLogs: [],
+      exercises: [],
+      customFoods: [
+        {
+          id: 'c1',
+          name: '自制饭团',
+          category: 'staple',
+          tags: [],
+          per100: { kcal: 180, p: 5, c: 30, f: 4 },
+          defaultGrams: 150,
+          unit: '个',
+          unitGrams: 150,
+        },
+      ],
+      steps: {},
+      createdAt: '2026-01-01',
+    }
+    const n = normalize(raw as unknown)
+    expect(n.customFoods[0].unit).toBe('个')
+    expect(n.customFoods[0].unitGrams).toBe(150)
+  })
+})
+describe('云端合并 mergeAppData', () => {
+  const base = () => normalize({ schema: 1, createdAt: '2026-01-01' } as unknown) as AppData
+
+  const log = (id: string, createdAt: number, name = '食物') =>
+    ({
+      id,
+      date: '2026-10-01',
+      meal: 'breakfast',
+      name,
+      grams: 100,
+      kcal: 100,
+      p: 1,
+      c: 1,
+      f: 1,
+      createdAt,
+    }) as unknown as AppData['foodLogs'][number]
+
+  it('本地为空时取云端', () => {
+    const remote = { ...base(), foodLogs: [log('a', 1)] }
+    expect(mergeAppData(null, remote).foodLogs).toHaveLength(1)
+  })
+
+  it('云端为空时保留本地', () => {
+    const local = { ...base(), foodLogs: [log('a', 1)] }
+    expect(mergeAppData(local, null).foodLogs).toHaveLength(1)
+  })
+
+  it('按 id 取并集，两边都不删', () => {
+    const local = { ...base(), foodLogs: [log('a', 1)] }
+    const remote = { ...base(), foodLogs: [log('b', 2)] }
+    const ids = mergeAppData(local, remote)
+      .foodLogs.map((x) => x.id)
+      .sort()
+    expect(ids).toEqual(['a', 'b'])
+  })
+
+  it('同 id 取 createdAt 较新的那条', () => {
+    const local = { ...base(), foodLogs: [log('a', 1, '旧的')] }
+    const remote = { ...base(), foodLogs: [log('a', 9, '新的')] }
+    expect(mergeAppData(local, remote).foodLogs[0].name).toBe('新的')
+  })
+
+  it('同一天体重以本地为准', () => {
+    const local = { ...base(), weights: [{ date: '2026-10-01', kg: 70 }] as unknown as AppData['weights'] }
+    const remote = { ...base(), weights: [{ date: '2026-10-01', kg: 75 }] as unknown as AppData['weights'] }
+    expect(mergeAppData(local, remote).weights[0].kg).toBe(70)
+  })
+
+  it('步数按日期取并集', () => {
+    const local = { ...base(), steps: { '2026-10-01': 100 } }
+    const remote = { ...base(), steps: { '2026-10-02': 200 } }
+    expect(Object.keys(mergeAppData(local, remote).steps).sort()).toEqual(['2026-10-01', '2026-10-02'])
   })
 })

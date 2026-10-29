@@ -165,6 +165,8 @@ export function normalize(input: unknown): AppData {
             water: typeof obj(f.per100).water === 'number' ? (obj(f.per100).water as number) : undefined,
           },
           defaultGrams: num(f.defaultGrams, 100),
+          unit: typeof f.unit === 'string' ? f.unit : undefined,
+          unitGrams: typeof f.unitGrams === 'number' ? f.unitGrams : undefined,
           custom: true,
         }))
     : []

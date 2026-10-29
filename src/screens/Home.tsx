@@ -62,6 +62,7 @@ export function Home({
   const [talk, setTalk] = useState<string | null>(null)
   const [previewKg, setPreviewKg] = useState<number | null>(null)
   const [showLog, setShowLog] = useState(false)
+  const syncStatus = useStore((s) => s.syncStatus)
 
   const previewBuild =
     previewKg !== null && data.profile
@@ -167,6 +168,29 @@ export function Home({
           </button>
         </div>
       </header>
+
+      {syncStatus !== 'synced' && (
+        <div className="mt-1 flex items-center gap-1.5 px-1 text-[10px] text-muted/60">
+          <span
+            className={
+              'h-1.5 w-1.5 rounded-full ' +
+              (syncStatus === 'error'
+                ? 'bg-[#ff6b81]'
+                : syncStatus === 'syncing'
+                  ? 'bg-[#63a4ff]'
+                  : 'bg-[#f5b942]')
+            }
+          />
+          {{
+            idle: '未连接云端',
+            syncing: '正在同步…',
+            synced: '',
+            dirty: '有改动待上传',
+            offline: '离线，联网后自动上传',
+            error: '同步异常',
+          }[syncStatus]}
+        </div>
+      )}
 
       {showLog && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setShowLog(false)}>

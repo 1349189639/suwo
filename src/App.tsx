@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
 import { UpdateNotice } from './components/UpdateNotice'
 import { readDemoParams } from './data/demo'
-import { currentAccountId } from './data/auth'
 import { useStore } from './data/store'
 import { Auth } from './screens/Auth'
 import { ActionPicker } from './screens/ActionPicker'
@@ -37,10 +36,17 @@ export default function App() {
   const toast = useStore((s) => s.toast)
   const setToast = useStore((s) => s.setToast)
 
-  const switchAccount = useStore((s) => s.switchAccount)
-  const [authed, setAuthed] = useState(() => Boolean(currentAccountId()))
+  const cloudUser = useStore((s) => s.cloudUser)
+  const bootstrapping = useStore((s) => s.bootstrapping)
+  const cloudBootstrap = useStore((s) => s.cloudBootstrap)
+  const cloudLogout = useStore((s) => s.cloudLogout)
+
   const [tab, setTab] = useState<Tab>(INITIAL_TAB)
   const [sheet, setSheet] = useState<SheetKind>(INITIAL_SHEET)
+
+  useEffect(() => {
+    void cloudBootstrap()
+  }, [cloudBootstrap])
 
   useEffect(() => {
     if (!toast) return
@@ -48,15 +54,19 @@ export default function App() {
     return () => clearTimeout(t)
   }, [toast, setToast])
 
-  if (!authed) {
+  if (bootstrapping) {
     return (
-      <Auth
-        onDone={(id) => {
-          switchAccount(id)
-          setAuthed(true)
-        }}
-      />
+      <div className="mx-auto grid min-h-dvh w-full max-w-[430px] place-items-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
+          <div className="text-[13px] text-muted">正在同步你的数据…</div>
+        </div>
+      </div>
     )
+  }
+
+  if (!cloudUser) {
+    return <Auth />
   }
 
   if (!data.profile || !data.goal) return <Onboarding />
@@ -81,8 +91,7 @@ export default function App() {
           onOpenLook={() => setSheet('look')}
           onOpenVision={() => setSheet('vision')}
           onLoggedOut={() => {
-            switchAccount(null)
-            setAuthed(false)
+            void cloudLogout()
           }}
         />
       )}

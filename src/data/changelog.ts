@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.6.0'
+﻿export const CURRENT_VERSION = '0.7.0'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,17 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.0',
+    date: '2026-10-29',
+    title: '数据上云，换机不丢',
+    items: [
+      '账号登录后记录自动同步到云端，重装、换机登录同一账号即可恢复',
+      '断网时先存在本机，联网后自动补传，不会阻塞记账',
+      '支持凭旧密码修改密码、凭密码删除账号',
+      '首次登录会自动把旧版本机历史数据合并到云端账号',
+    ],
+  },
   {
     version: '0.6.0',
     date: '2026-10-29',

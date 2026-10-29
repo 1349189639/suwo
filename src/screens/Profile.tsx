@@ -5,7 +5,7 @@ import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
 import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
-import { readStepsDebug, type StepDebug } from '../data/steps'
+import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
 import { downloadText, toCsv } from '../data/export'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
@@ -58,6 +58,7 @@ export function ProfileScreen({
 
   const [showCloud, setShowCloud] = useState(false)
   const [stepDbg, setStepDbg] = useState<StepDebug | null>(null)
+  const [hcDbg, setHcDbg] = useState<HealthProbeDebug | null>(null)
   const [showPwd, setShowPwd] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [pwdOld, setPwdOld] = useState('')
@@ -451,9 +452,48 @@ export function ProfileScreen({
           </Button>
           {stepDbg && (
             <div className="mt-1 rounded-xl bg-surface2/50 p-2 text-[10px] leading-4 text-muted/70">
-              原生壳：{String(stepDbg.native)} · 传感器：{String(stepDbg.available)} · 今日：
-              {String(stepDbg.steps)} · 原始累计：{String(stepDbg.total)}
-              {stepDbg.error ? ` · 错误：${stepDbg.error}` : ''}
+              <div>原生壳：{String(stepDbg.native)} · 传感器：{String(stepDbg.available)} · 今日：
+                {String(stepDbg.steps)} · 原始累计：{String(stepDbg.total)}</div>
+              {stepDbg.branch && (
+                <div>
+                  分支：{stepDbg.branch === 'todayBoot' ? '今天开机·累计即今日'
+                    : stepDbg.branch === 'baselineNewDay' ? '跨天首次读取·基准刚重置'
+                    : stepDbg.branch === 'baselineRebooted' ? '检测到重启·基准刚重置'
+                    : '基准相减'} · 今天开机：{String(stepDbg.bootToday)}
+                </div>
+              )}
+              {stepDbg.base !== null && stepDbg.base !== undefined && (
+                <div>基准值：{String(Math.round(stepDbg.base))} · 保存日期：{stepDbg.savedDate || '（无）'} · 累计：{String(stepDbg.latest)}</div>
+              )}
+              {stepDbg.apiLevel !== null && stepDbg.apiLevel !== undefined && (
+                <div>API 等级：{String(stepDbg.apiLevel)}{stepDbg.bootUptimeMs !== null && stepDbg.bootUptimeMs !== undefined
+                  ? ` · 本次开机已运行 ${Math.round(stepDbg.bootUptimeMs / 60000)} 分钟` : ''}</div>
+              )}
+              {stepDbg.error ? <div className="text-danger">错误：{stepDbg.error}</div> : ''}
+            </div>
+          )}
+          <Button
+            variant="soft"
+            className="mt-1 w-full"
+            onClick={async () => {
+              const d = await readHealthProbe()
+              setHcDbg(d)
+              setToast(d.ok ? '健康平台探测完成' : `探测失败：${d.error}`)
+            }}
+          >
+            健康平台探测（开发调试）
+          </Button>
+          {hcDbg && (
+            <div className="mt-1 rounded-xl bg-surface2/50 p-2 text-[10px] leading-4 text-muted/70">
+              {!hcDbg.ok && <div className="text-danger">错误：{hcDbg.error}</div>}
+              {hcDbg.data && (
+                <>
+                  <div>机型：{hcDbg.data.deviceBrand} {hcDbg.data.deviceModel} · Android {hcDbg.data.androidRelease}（API {hcDbg.data.apiLevel}）</div>
+                  <div>系统内置 Health Connect：{String(hcDbg.data.builtInHC)} · SDK 扩展：{String(hcDbg.data.sdkExtension)}</div>
+                  <div>Health Connect 已安装：{String(hcDbg.data.providerInstalled)} · 启用：{String(hcDbg.data.providerEnabled)}{hcDbg.data.providerVersion ? ` · 版本：${hcDbg.data.providerVersion}` : ''}{hcDbg.data.providerReason ? ` · ${hcDbg.data.providerReason}` : ''}</div>
+                  <div>本机健康/运动应用（{hcDbg.data.healthPackages.matchCount}）：{hcDbg.data.healthPackages.matches || '（未列出）'}</div>
+                </>
+              )}
             </div>
           )}
           {showCloud && <CloudCheck onClose={() => setShowCloud(false)} />}

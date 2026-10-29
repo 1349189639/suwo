@@ -416,6 +416,20 @@ export function Home({
         </div>
         <span className="text-[12px] text-muted">修改</span>
       </button>
+      <button
+        onClick={() => {
+          const raw = window.prompt('今天走了多少步？', String(day.steps || ''))
+          if (raw === null) return
+          const n = Number(raw.replace(/[^\d]/g, ''))
+          if (Number.isFinite(n) && n >= 0) {
+            setSteps(n)
+            setToast('已记录步数')
+          }
+        }}
+        className="mt-1 w-full text-center text-[10px] text-muted/45"
+      >
+        步数不准？点这里手动填写
+      </button>
 
       {/* 今日记录 */}
       <div className="mb-2 mt-4 flex items-end justify-between px-1">

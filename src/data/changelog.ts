@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.7.2'
+﻿export const CURRENT_VERSION = '0.7.5'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,30 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.5',
+    date: '2026-10-29',
+    title: '健康平台探测',
+    items: [
+      '我的页面新增「健康平台探测」，先确认本机 Health Connect 是否可用、有哪些健康类应用，再决定是否接入读取今日步数',
+    ],
+  },
+  {
+    version: '0.7.4',
+    date: '2026-10-29',
+    title: '步数诊断增强',
+    items: [
+      '步数诊断额外显示命中的换算分支、基准值、保存日期与本次开机时长，便于定位今日步数偏低',
+    ],
+  },
+  {
+    version: '0.7.3',
+    date: '2026-10-29',
+    title: '新增步数诊断',
+    items: [
+      '「我的」页面新增「步数诊断」按钮，可查看是否在原生壳、传感器是否可用、今日步数与原始累计值，方便定位步数问题',
+    ],
+  },
   {
     version: '0.7.2',
     date: '2026-10-29',

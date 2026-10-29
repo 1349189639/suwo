@@ -18,6 +18,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // 本地插件必须在 super.onCreate 之前注册
         registerPlugin(StepCounterPlugin.class);
+        registerPlugin(HealthProbePlugin.class);
         super.onCreate(savedInstanceState);
 
         // 申请相机权限（扫码 / 拍照识别都要）

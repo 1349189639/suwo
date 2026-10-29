@@ -47,6 +47,8 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- 健康平台探测（仅探测版临时使用，正式上线前移除）：读取已安装健康类应用包名 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <uses-feature
         android:name="android.hardware.camera"
@@ -54,4 +56,9 @@
     <uses-feature
         android:name="android.hardware.sensor.stepcounter"
         android:required="false" />
+
+    <!-- Health Connect provider 可见性声明 -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 </manifest>

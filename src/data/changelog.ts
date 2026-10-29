@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.7.0'
+﻿export const CURRENT_VERSION = '0.7.1'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,15 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.1',
+    date: '2026-10-29',
+    title: '修复手机记账输入',
+    items: [
+      '修复手机上「一餐花费」输入框点不开、键盘弹不出的问题',
+      '修改记录的编辑卡片改为显示在该条记录正下方，不用往上翻找',
+    ],
+  },
   {
     version: '0.7.0',
     date: '2026-10-29',

@@ -63,6 +63,9 @@ export function Home({
   const [previewKg, setPreviewKg] = useState<number | null>(null)
   const [showLog, setShowLog] = useState(false)
   const syncStatus = useStore((s) => s.syncStatus)
+  const syncNow = useStore((s) => s.syncNow)
+  const [syncing, setSyncing] = useState(false)
+  const stepRefresh = useRef<() => void>(() => {})
 
   const previewBuild =
     previewKg !== null && data.profile
@@ -70,29 +73,37 @@ export function Home({
       : null
 
   // 原生壳里自动从系统计步器同步（只增不减，不覆盖手动修正）
-  const synced = useRef(false)
   useEffect(() => {
-    if (!isNativeApp || synced.current) return
-    synced.current = true
+    if (!isNativeApp) return
+    let alive = true
     const refresh = (announce: boolean) => {
       void readNativeSteps().then((n) => {
-        if (n !== null && n > (data.steps[today] ?? 0)) {
+        if (!alive || n === null) return
+        // 用最新 store 快照比较，避免闭包里拿着旧数据
+        const cur = useStore.getState().data.steps[today] ?? 0
+        if (n > cur) {
           setSteps(n)
           if (announce) setToast(`已同步 ${n.toLocaleString()} 步`)
         }
       })
     }
+    stepRefresh.current = () => refresh(true)
     refresh(true)
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh(false)
     }
     document.addEventListener('visibilitychange', onVisible)
-    const timer = window.setInterval(() => refresh(false), 60_000)
+    window.addEventListener('focus', onVisible)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh(false)
+    }, 20_000)
     return () => {
+      alive = false
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
       window.clearInterval(timer)
     }
-  }, [data.steps, setSteps, setToast, today])
+  }, [setSteps, setToast, today])
   useEffect(() => {
     if (!talk) return
     const t = setTimeout(() => setTalk(null), 2600)
@@ -151,6 +162,28 @@ export function Home({
           <h1 className="mt-0.5 text-[21px] font-bold">{greeting()}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (syncing) return
+              setSyncing(true)
+              try {
+                await syncNow()
+                stepRefresh.current()
+                setToast('已同步')
+              } catch {
+                setToast('同步失败，稍后再试')
+              } finally {
+                setSyncing(false)
+              }
+            }}
+            className={
+              'rounded-full border px-2.5 py-1.5 text-[12px] active:opacity-60 ' +
+              (syncing ? 'border-accent/50 bg-accent/15 text-accent' : 'border-line bg-surface/80')
+            }
+            aria-label="立即同步"
+          >
+            {syncing ? '…' : '↻'}
+          </button>
           <button
             onClick={() => setShowLog(true)}
             className="rounded-full border border-line bg-surface/80 px-2.5 py-1.5 text-[12px]"

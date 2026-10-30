@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+import { useBackToClose } from '../components/useBackToClose'
+import { useState } from 'react'
 import { Button, Card } from '../components/ui'
 import { useStore } from '../data/store'
 import {
@@ -13,6 +14,7 @@ import { CURRENT_VERSION } from '../data/changelog'
 import { explainError, submitFeedback } from '../data/cloud.v2'
 
 export function Feedback({ onClose }: { onClose: () => void }) {
+  useBackToClose(onClose)
   const data = useStore((s) => s.data)
   const cloudUser = useStore((s) => s.cloudUser)
   const [kind, setKind] = useState<FeedbackKind>('bug')

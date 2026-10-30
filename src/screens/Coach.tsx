@@ -1,3 +1,4 @@
+import { useBackToClose } from '../components/useBackToClose'
 import { useEffect, useRef, useState } from 'react'
 import { askCoach, clearChat, compact, loadChat, saveChat, type ChatState } from '../data/coach'
 import { hasVisionConfig } from '../data/vision'
@@ -6,6 +7,7 @@ import { useStore } from '../data/store'
 const QUICK = ['这周早餐花了多少钱？', '今天还差多少蛋白？', '我想继续减脂，饮食怎么调？']
 
 export function Coach({ onClose }: { onClose: () => void }) {
+  useBackToClose(onClose)
   const data = useStore((s) => s.data)
   const uid = useStore((s) => s.cloudUser?.uid ?? null)
   const [state, setState] = useState<ChatState>(() => loadChat(uid))

@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core'
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { MEAL_LABEL, type AppData } from '../domain/types'
 
 function cell(v: string | number): string {
@@ -150,15 +153,39 @@ export function toXls(data: AppData): string {
 }
 
 /**
- * 把内容交给系统处理：优先「分享」（APK 里可存到文件 / 发微信），
- * 其次浏览器下载，最后退回剪贴板。
+ * 把内容交给系统处理：
+ * - 原生壳（APK / iOS）：先写到本机缓存目录，再弹系统分享面板，
+ *   可直接用 WPS 打开、存到文件、发微信。
+ * - 浏览器：优先 Web Share API，其次 <a download> 下载，最后退回剪贴板。
  */
 export async function shareOrDownload(
   filename: string,
   content: string,
   mime: string,
-): Promise<'shared' | 'downloaded' | 'copied'> {
-  // 1) 系统分享（Android WebView / Chrome 支持）
+): Promise<'shared' | 'downloaded' | 'copied' | 'cancelled'> {
+  // 1) 原生壳：Filesystem 写缓存 + 系统分享面板（WebView 内浏览器下载 API 失效，不能走 <a download>）
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { uri } = await Filesystem.writeFile({
+        path: filename,
+        data: content,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+        recursive: true,
+      })
+      await Share.share({
+        title: filename,
+        files: [uri],
+        dialogTitle: '分享导出文件',
+      })
+      return 'shared'
+    } catch {
+      // 用户手动关掉分享面板或取消，既不算成功也不算失败
+      return 'cancelled'
+    }
+  }
+
+  // 2) 浏览器：Web Share API（支持文件时）
   try {
     const nav = navigator as Navigator & {
       canShare?: (d: { files?: File[] }) => boolean
@@ -175,7 +202,7 @@ export async function shareOrDownload(
     /* 用户取消或环境不支持，继续往下走 */
   }
 
-  // 2) 浏览器下载
+  // 3) 浏览器下载
   try {
     const blob = new Blob([content], { type: mime })
     const url = URL.createObjectURL(blob)
@@ -192,7 +219,7 @@ export async function shareOrDownload(
     /* 落空 */
   }
 
-  // 3) 剪贴板兜底
+  // 4) 剪贴板兜底
   await navigator.clipboard.writeText(content)
   return 'copied'
 }

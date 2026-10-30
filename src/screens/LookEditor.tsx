@@ -22,7 +22,10 @@ import {
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 flex items-baseline gap-2 px-1">`n        <span className="text-[12px] text-muted">{title}</span>`n        {hint && <span className="text-[10px] text-muted/50">{hint}</span>}`n      </div>
+            <div className="mb-2 flex items-baseline gap-2 px-1">
+        <span className="text-[12px] text-muted">{title}</span>
+        {hint && <span className="text-[10px] text-muted/50">{hint}</span>}
+      </div>
       {children}
     </div>
   )

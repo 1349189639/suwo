@@ -94,15 +94,31 @@ export function ProfileScreen({
   const bmr = Math.round(calcBmr(profile.gender, weight, profile.heightCm, profile.birthYear))
   const target = goal ? dailyKcalTarget(profile, weight, goal) : null
 
-  const onExport = () => {
-    const blob = new Blob([exportJson(data)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `塑我-备份-${todayKey()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    setToast('已导出备份')
+  const exportToast = (
+    how: 'shared' | 'downloaded' | 'copied' | 'cancelled',
+    label: string,
+  ) =>
+    setToast(
+      how === 'shared'
+        ? '已发送到分享面板，可存文件或发微信'
+        : how === 'downloaded'
+          ? `${label}已下载到本机`
+          : how === 'cancelled'
+            ? '已取消导出'
+            : '内容已复制到剪贴板',
+    )
+
+  const onExport = async () => {
+    try {
+      const how = await shareOrDownload(
+        `塑我-备份-${todayKey()}.json`,
+        exportJson(data),
+        'application/json',
+      )
+      exportToast(how, '备份')
+    } catch {
+      setToast('导出失败，稍后再试')
+    }
   }
 
   return (
@@ -355,13 +371,7 @@ export function ProfileScreen({
                   xml,
                   'application/vnd.ms-excel',
                 )
-                setToast(
-                  how === 'shared'
-                    ? '已发送到分享面板，可存文件或发微信'
-                    : how === 'downloaded'
-                      ? 'Excel 已下载到本机'
-                      : '内容已复制到剪贴板',
-                )
+                exportToast(how, 'Excel ')
               } catch {
                 setToast('导出失败，稍后再试')
               }

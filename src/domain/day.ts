@@ -1,4 +1,4 @@
-import { computeStreak, dayScore, spiritFrom, weekScore } from './adherence'
+import { computeStreak, dayScore, spiritFrom, spiritLabel, weekScore } from './adherence'
 import { stepsKcal } from './activity'
 import { buildFromBmi, muscleFromBuild, smoothWeight, stageFromBmi, type BodyStage } from './avatar'
 import { lastNDates, todayKey } from './date'
@@ -171,6 +171,22 @@ export function summarizeWeek(data: AppData, end = todayKey(), n = 7): WeekSumma
 
 export function currentStreak(data: AppData): number {
   return computeStreak(new Set(data.foodLogs.map((l) => l.date)), todayKey())
+}
+
+export interface SpiritInfo {
+  /** 0–100 的分值（无记录时按 50 计，仅用于表情） */
+  score: number
+  /** 人话标签：状态极佳 / 状态不错 / 有点懈怠 … */
+  label: string
+  /** 最近 7 天有没有任何饮食记录 */
+  hasData: boolean
+}
+
+export function currentSpiritInfo(data: AppData): SpiritInfo {
+  const week = summarizeWeek(data)
+  const score = spiritFrom(week.score, currentStreak(data))
+  const hasData = week.days.some((d) => d.meals.length > 0)
+  return { score, label: hasData ? spiritLabel(score) : '还没有记录', hasData }
 }
 
 export function currentSpirit(data: AppData): number {

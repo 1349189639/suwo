@@ -8,7 +8,7 @@ import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
 import { stepsKcal } from '../domain/activity'
 import { stageInfo } from '../domain/avatar'
-import { bodyState, currentSpirit, currentStreak, summarizeDay, targetsFor } from '../domain/day'
+import { bodyState, currentSpiritInfo, currentStreak, summarizeDay, targetsFor } from '../domain/day'
 import { buildFromBmi } from '../domain/avatar'
 import { calcBmi, fiberTargetG, waterTargetMl } from '../domain/nutrition'
 import { formatCN, todayKey, weekdayCN } from '../domain/date'
@@ -56,7 +56,8 @@ export function Home({
   const day = summarizeDay(data, today)
   const targets = targetsFor(data)
   const body = bodyState(data)
-  const spirit = currentSpirit(data)
+  const spiritInfo = currentSpiritInfo(data)
+  const spirit = spiritInfo.score
   const streak = currentStreak(data)
   const action = data.avatarAction ?? 'idle'
   const stage = stageInfo(body?.stage ?? 3)
@@ -320,7 +321,7 @@ export function Home({
             体型 · {stage.label}
           </span>
           <span className="rounded-full bg-black/35 px-2.5 py-1 text-[10px] text-white/80 backdrop-blur">
-            状态 · {spirit} 分
+            状态 · {spiritInfo.label}
           </span>
           {body && (
             <span className="rounded-full bg-black/35 px-2.5 py-1 text-[10px] text-white/80 backdrop-blur">

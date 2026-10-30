@@ -1,9 +1,11 @@
+import { useBackToClose } from '../components/useBackToClose'
 import { useState } from 'react'
 import { Button, Card } from '../components/ui'
 import { CLOUD_ENV, explainError, selfCheck, signIn, signOut, type CheckResult } from '../data/cloud'
 import { TextField } from '../components/ui'
 
 export function CloudCheck({ onClose }: { onClose: () => void }) {
+  useBackToClose(onClose)
   const [results, setResults] = useState<CheckResult[]>([])
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')

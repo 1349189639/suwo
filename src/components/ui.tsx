@@ -1,3 +1,4 @@
+import { useBackToClose } from './useBackToClose'
 import { useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react'
 
@@ -72,6 +73,7 @@ export function Sheet({
   children: ReactNode
   full?: boolean
 }) {
+  useBackToClose(onClose, open)
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

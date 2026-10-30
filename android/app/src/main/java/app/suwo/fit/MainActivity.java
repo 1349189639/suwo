@@ -23,20 +23,18 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(HealthProbePlugin.class);
         super.onCreate(savedInstanceState);
 
-        // API 33+ 的返回手势 / 返回键由 OnBackPressedDispatcher 经系统
-        // OnBackInvokedDispatcher 分发；只覆写旧版 onBackPressed() 不会被调用，
-        // 必须在这里注册回调，才能接住返回并交给 WebView 历史栈处理。
+        // 返回手势 / 返回键一律交给前端决策（关浮层 / 回首页 / 二次确认退出）。
+        // 关键：这里绝不能让 WebView 自己 goBack，也不能 setEnabled(false) ——
+        // 之前那版一旦执行 setEnabled(false)，本回调就永久失效，之后每次侧滑都直接退出。
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 Bridge b = getBridge();
-                if (b != null && b.getWebView() != null && b.getWebView().canGoBack()) {
-                    b.getWebView().goBack();
+                if (b == null || b.getWebView() == null) {
                     return;
                 }
-                // WebView 没有可回退历史：关闭本回调，交还 dispatcher 走兜底退出
-                setEnabled(false);
-                getOnBackPressedDispatcher().onBackPressed();
+                b.getWebView().evaluateJavascript(
+                    "window.__suwoBack && window.__suwoBack()", null);
             }
         });
 
@@ -64,18 +62,5 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    /**
-     * 兼容 API 24–32：旧系统直接回调 onBackPressed()，逻辑与 dispatcher 回调一致。
-     * 只要 WebView 里有历史（浮层打开时前端会 push 一条守卫），就后退一步；
-     * 没有历史才交给系统退出 App。
-     */
-    @Override
-    public void onBackPressed() {
-        Bridge b = getBridge();
-        if (b != null && b.getWebView() != null && b.getWebView().canGoBack()) {
-            b.getWebView().goBack();
-            return;
-        }
-        super.onBackPressed();
-    }
+
 }

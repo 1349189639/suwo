@@ -33,6 +33,12 @@ public class MainActivity extends BridgeActivity {
                 if (b == null || b.getWebView() == null) {
                     return;
                 }
+                String url = b.getWebView().getUrl();
+                // 页面还没起来（或加载失败）时，别把用户困在 App 里
+                if (url == null || url.startsWith("about:")) {
+                    finish();
+                    return;
+                }
                 b.getWebView().evaluateJavascript(
                     "window.__suwoBack && window.__suwoBack()", null);
             }

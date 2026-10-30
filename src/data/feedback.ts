@@ -7,7 +7,6 @@ export interface FeedbackItem {
   at: number
   kind: FeedbackKind
   text: string
-  contact: string
   version: string
 }
 
@@ -26,7 +25,11 @@ export function loadFeedback(): FeedbackItem[] {
     if (!raw) return []
     const arr = JSON.parse(raw) as unknown
     if (!Array.isArray(arr)) return []
-    return (arr as FeedbackItem[]).filter((x) => x && typeof x.text === 'string').slice(-MAX)
+    // 旧版本缓存里可能带 contact 字段，这里按当前结构过滤，多余字段不影响展示。
+    return (arr as Array<Partial<FeedbackItem> & { contact?: string }>)
+      .filter((x) => x && typeof x.text === 'string' && x.kind && x.at)
+      .map((x) => ({ id: String(x.id), at: x.at!, kind: x.kind!, text: x.text!, version: x.version ?? '' }))
+      .slice(-MAX)
   } catch {
     return []
   }
@@ -36,24 +39,11 @@ export function saveFeedback(list: FeedbackItem[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(list.slice(-MAX)))
   } catch {
-    /* 存不下不影响复制 */
+    /* 存不下不影响提交 */
   }
 }
 
-/** 把反馈整理成一段可直接发送的文本（含版本与设备信息，方便定位问题） */
-export function formatFeedback(item: FeedbackItem, data: AppData): string {
-  const logs = data.foodLogs.length
-  const exs = data.exercises.length
-  return [
-    `【塑我 · ${FEEDBACK_KINDS.find((k) => k.id === item.kind)?.label ?? '反馈'}】`,
-    item.text.trim(),
-    '',
-    item.contact.trim() ? `联系方式：${item.contact.trim()}` : '',
-    `版本：${item.version}`,
-    `时间：${new Date(item.at).toLocaleString('zh-CN')}`,
-    `数据量：饮食 ${logs} 条 / 运动 ${exs} 条`,
-    `设备：${navigator.userAgent.slice(0, 90)}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
+/** 反馈提交时附带的本机数据量快照（后台定位问题用）。 */
+export function feedbackSnapshot(data: AppData): { foodCount: number; exerciseCount: number } {
+  return { foodCount: data.foodLogs.length, exerciseCount: data.exercises.length }
 }

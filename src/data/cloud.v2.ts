@@ -87,7 +87,7 @@ export function explainError(e: unknown): string {
     return `当前未登录或登录态已失效：先完成密码登录再读写云端数据。原始错误：${raw}`
   }
   if (s.includes('permission') || s.includes('权限') || s.includes('denied') || s.includes('forbidden')) {
-    return `数据库权限不足：集合 appdata 设为「仅创建者可读写」，只能读写本人数据。原始错误：${raw}`
+    return `数据库权限不足：当前集合按安全规则限制，只能访问本人数据。原始错误：${raw}`
   }
   if (s.includes('password') || s.includes('密码') || s.includes('invalid credentials') || s.includes('账号或密码')) {
     return `账号或密码不正确。原始错误：${raw}`
@@ -163,6 +163,13 @@ export async function changePassword(oldPassword: string, newPassword: string): 
 
 /** 删除当前云端账号（需输入密码二次确认）。删除成功后本地会话由调用方清理。 */
 export async function deleteCloudAccount(password: string): Promise<void> {
+  // 1) 先在会话仍然有效、本人权限允许的前提下删掉 appdata 整档，避免只删 auth 用户、文档残留。
+  const user = await currentUser()
+  if (user) {
+    await deleteCloudDoc(user.uid)
+  }
+
+  // 2) 再删除云端 auth 用户；顺序不可颠倒——删号后会话失效，无权再访问数据库。
   const a = auth()
   let res: any
   try {
@@ -257,10 +264,72 @@ export async function saveDoc(uid: string, doc: unknown): Promise<void> {
     .set({ doc, updated_at: Date.now() })
 }
 
+/**
+ * 删除当前用户在 appdata 的整档文档。
+ * 文档不存在时视为成功（已被清掉）；其它权限/网络错误向上抛出。
+ * 必须在账号（auth 用户）被删除之前调用：删除用户后会话失效，本人权限不再允许删库。
+ */
+export async function deleteCloudDoc(uid: string): Promise<void> {
+  try {
+    await db().collection('appdata').doc(uid).remove()
+  } catch (e) {
+    if (isNotFound(e)) return
+    throw e
+  }
+}
+
 export interface CheckResult {
   name: string
   ok: boolean
   detail: string
+}
+
+/** 反馈类型代码（与 data/feedback.ts 的 FeedbackKind 保持一致，此处独立定义避免数据层反向依赖界面层） */
+export type FeedbackKindCode = 'bug' | 'idea' | 'other'
+
+export interface FeedbackPayload {
+  kind: FeedbackKindCode
+  text: string
+  version: string
+  foodCount: number
+  exerciseCount: number
+}
+
+/**
+ * 提交一条用户反馈到云端 feedback 集合。
+ *
+ * 集合规则（CUSTOM）：read/update/delete = false，create = auth != null。
+ * - 普通登录用户只能写入，客户端之间互不可见；
+ * - 开发者在 CloudBase 控制台 / 管理端查看全部记录（管理端身份绕过客户端安全规则）。
+ *
+ * 文档显式落库 uid / username / email，后台据此识别是谁发的；不再采集用户自填联系方式。
+ * 成功返回云端文档 _id；未登录或网络/权限失败向上抛出，由界面提示。
+ */
+export async function submitFeedback(payload: FeedbackPayload): Promise<string> {
+  const user = await currentUser()
+  if (!user) throw new Error('请先登录后再提交反馈')
+
+  const record = {
+    uid: user.uid,
+    username: user.username ?? null,
+    email: user.email ?? null,
+    kind: payload.kind,
+    text: payload.text.trim(),
+    version: payload.version,
+    at: Date.now(),
+    ua: (typeof navigator !== 'undefined' ? navigator.userAgent : '').slice(0, 120),
+    foodCount: payload.foodCount,
+    exerciseCount: payload.exerciseCount,
+  }
+
+  let res: any
+  try {
+    res = await db().collection('feedback').add(record)
+  } catch (e) {
+    throw new Error(describeRaw(e))
+  }
+  if (res && res.error) throw new Error(describeRaw(res.error))
+  return (res?._id as string) ?? ''
 }
 
 /** 连接自检：逐项报告卡在哪一层。未登录时不强行测数据库读写。 */

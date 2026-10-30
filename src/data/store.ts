@@ -58,7 +58,7 @@ interface Store {
   setOutfitStyle: (style: Look['outfitStyle']) => void
   switchAccount: (id: string | null) => void
   replaceData: (text: string) => boolean
-  reset: () => void
+  reset: () => Promise<void>
 
   // ===== 云端会话与同步（新增，只增不改旧方法） =====
   cloudUser: CloudUser | null
@@ -244,12 +244,26 @@ export const useStore = create<Store>((set, get) => {
       }
     },
 
-    reset: () => {
-      clearData()
+    reset: async () => {
       const empty = emptyData()
-      set({ data: empty })
       const user = get().cloudUser
+
+      // 已登录云端：先把空档覆盖推到云端，否则重新登录时三向合并会把旧记录并回来，
+      // 本机清空就没有意义。云端推送失败不回滚本地清空（本机已回到空档），但把错误抛出给界面提示。
+      if (user) {
+        try {
+          await pushToCloud(user, empty)
+        } catch (e) {
+          markDirty(true)
+          set({ syncStatus: 'offline' })
+          throw e
+        }
+      }
+
+      clearData()
+      set({ data: empty, syncStatus: user ? 'synced' : 'idle' })
       if (user) writeLocalCache(user.uid, empty)
+      markDirty(false)
     },
 
     // ===== 云端 =====

@@ -3,6 +3,7 @@ import { Avatar } from '../components/Avatar'
 import { CircleAction, ProgressBar } from '../components/ui'
 import { ChangelogList } from '../components/UpdateNotice'
 import { Coach } from './Coach'
+import { Feedback } from './Feedback'
 import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
 import { stepsKcal } from '../domain/activity'
@@ -64,6 +65,7 @@ export function Home({
   const [previewKg, setPreviewKg] = useState<number | null>(null)
   const [showLog, setShowLog] = useState(false)
   const [showCoach, setShowCoach] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const syncStatus = useStore((s) => s.syncStatus)
   const syncNow = useStore((s) => s.syncNow)
   const [syncing, setSyncing] = useState(false)
@@ -236,6 +238,7 @@ export function Home({
       )}
 
       {showCoach && <Coach onClose={() => setShowCoach(false)} />}
+      {showFeedback && <Feedback onClose={() => setShowFeedback(false)} />}
 
       {showLog && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setShowLog(false)}>
@@ -305,9 +308,10 @@ export function Home({
           <CircleAction icon="🍱" label="记饮食" onClick={onFood} />
           <CircleAction icon="🏃" label="记运动" onClick={onExercise} />
         </div>
-        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-4">
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-3">
           <CircleAction icon="🎬" label="换动作" onClick={onAction} tone="accent" />
           <CircleAction icon="⚖️" label="称体重" onClick={onWeight} />
+          <CircleAction icon="💬" label="留言板" onClick={() => setShowFeedback(true)} />
         </div>
 
         {/* 状态 */}

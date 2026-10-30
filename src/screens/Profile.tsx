@@ -5,7 +5,6 @@ import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
 import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
-import { Feedback } from './Feedback'
 import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
 import { shareOrDownload, toXls } from '../data/export'
 import { exportJson } from '../data/storage'
@@ -59,7 +58,6 @@ export function ProfileScreen({
 
   const [showCloud, setShowCloud] = useState(false)
   const [stepDbg, setStepDbg] = useState<StepDebug | null>(null)
-  const [showFeedback, setShowFeedback] = useState(false)
   const [hcDbg, setHcDbg] = useState<HealthProbeDebug | null>(null)
   const [showPwd, setShowPwd] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -71,6 +69,7 @@ export function ProfileScreen({
   const [delPwd, setDelPwd] = useState('')
   const [delBusy, setDelBusy] = useState(false)
   const [delError, setDelError] = useState<string | null>(null)
+  const [resetBusy, setResetBusy] = useState(false)
 
   const syncLabel: Record<SyncStatus, string> = {
     idle: '未连接',
@@ -445,13 +444,6 @@ export function ProfileScreen({
           <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
             云连接自检（开发调试）
           </Button>
-          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowFeedback(true)}>
-            留言板
-          </Button>
-          <div className="px-1 text-[10px] leading-4 text-muted/45">
-            用着哪里别扭、哪里出错，写给我（会自动复制，粘贴发给开发者即可）
-          </div>
-          {showFeedback && <Feedback onClose={() => setShowFeedback(false)} />}
           <Button
             variant="soft"
             className="mt-1 w-full"
@@ -488,13 +480,6 @@ export function ProfileScreen({
               {stepDbg.error ? <div className="text-danger">错误：{stepDbg.error}</div> : ''}
             </div>
           )}
-          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowFeedback(true)}>
-            留言板
-          </Button>
-          <div className="px-1 text-[10px] leading-4 text-muted/45">
-            用着哪里别扭、哪里出错，写给我（会自动复制，粘贴发给开发者即可）
-          </div>
-          {showFeedback && <Feedback onClose={() => setShowFeedback(false)} />}
           <Button
             variant="soft"
             className="mt-1 w-full"
@@ -602,12 +587,24 @@ export function ProfileScreen({
           <Button
             variant="danger"
             className="mt-1 w-full"
-            onClick={() => {
-              if (!confirm('会清空本机缓存并重新从云端拉取，确定？')) return
-              reset()
+            disabled={resetBusy}
+            onClick={async () => {
+              const msg = cloudUser
+                ? '本地与云端的饮食、运动、体重等记录都会清空，账号保留，确定？'
+                : '将清空本机全部记录，确定？'
+              if (!confirm(msg)) return
+              setResetBusy(true)
+              try {
+                await reset()
+                setToast('已清空全部数据')
+              } catch (e) {
+                setToast('云端清空失败：' + explainError(e))
+              } finally {
+                setResetBusy(false)
+              }
             }}
           >
-            清空全部数据
+            {resetBusy ? '清空中…' : '清空全部数据'}
           </Button>
         </Card>
       </div>

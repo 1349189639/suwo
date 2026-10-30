@@ -3,21 +3,23 @@ import { Button, Card } from '../components/ui'
 import { useStore } from '../data/store'
 import {
   FEEDBACK_KINDS,
-  formatFeedback,
+  feedbackSnapshot,
   loadFeedback,
   saveFeedback,
   type FeedbackItem,
   type FeedbackKind,
 } from '../data/feedback'
 import { CURRENT_VERSION } from '../data/changelog'
+import { explainError, submitFeedback } from '../data/cloud.v2'
 
 export function Feedback({ onClose }: { onClose: () => void }) {
   const data = useStore((s) => s.data)
+  const cloudUser = useStore((s) => s.cloudUser)
   const [kind, setKind] = useState<FeedbackKind>('bug')
   const [text, setText] = useState('')
-  const [contact, setContact] = useState('')
   const [list, setList] = useState<FeedbackItem[]>(() => loadFeedback())
   const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const submit = async () => {
     const body = text.trim()
@@ -25,27 +27,32 @@ export function Feedback({ onClose }: { onClose: () => void }) {
       setMsg('多写几个字吧，至少 3 个字')
       return
     }
-    const item: FeedbackItem = {
-      id: `fb${Date.now()}`,
-      at: Date.now(),
-      kind,
-      text: body,
-      contact: contact.trim(),
-      version: CURRENT_VERSION,
+    if (!cloudUser) {
+      setMsg('请先登录账号后再提交反馈')
+      return
     }
-    const next = [...list, item]
-    setList(next)
-    saveFeedback(next)
-
-    const formatted = formatFeedback(item, data)
-    let how = '已复制'
+    setBusy(true)
+    setMsg('')
     try {
-      await navigator.clipboard.writeText(formatted)
-    } catch {
-      how = '已保存（复制失败）'
+      const snap = feedbackSnapshot(data)
+      await submitFeedback({ kind, text: body, version: CURRENT_VERSION, ...snap })
+      const item: FeedbackItem = {
+        id: `fb${Date.now()}`,
+        at: Date.now(),
+        kind,
+        text: body,
+        version: CURRENT_VERSION,
+      }
+      const next = [...list, item]
+      setList(next)
+      saveFeedback(next)
+      setText('')
+      setMsg('已发送，我在后台能看到。')
+    } catch (e) {
+      setMsg(`提交失败：${explainError(e)}`)
+    } finally {
+      setBusy(false)
     }
-    setText('')
-    setMsg(`${how}：把内容粘贴发给开发者就行。也留在下面的记录里。`)
   }
 
   return (
@@ -57,7 +64,7 @@ export function Feedback({ onClose }: { onClose: () => void }) {
         <div>
           <div className="text-[17px] font-semibold">留言板</div>
           <div className="mt-0.5 text-[11px] text-muted/60">
-            用着哪里别扭、哪里出错，直接写给我
+            用着哪里别扭、哪里出错，直接写给我，提交后我在后台能看到
           </div>
         </div>
         <button onClick={onClose} className="rounded-full bg-accent/20 px-4 py-2 text-[13px] text-accent">
@@ -89,15 +96,8 @@ export function Feedback({ onClose }: { onClose: () => void }) {
           className="mt-2 w-full resize-none rounded-xl border border-line bg-surface2/50 px-3 py-2.5 text-[13px] leading-6 outline-none"
         />
 
-        <input
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          placeholder="联系方式（可选，方便我回你）"
-          className="mt-2 w-full rounded-xl border border-line bg-surface2/50 px-3 py-2.5 text-[13px] outline-none"
-        />
-
-        <Button className="mt-3 w-full" onClick={() => void submit()}>
-          提交并复制
+        <Button className="mt-3 w-full" disabled={busy} onClick={() => void submit()}>
+          {busy ? '发送中…' : '提交反馈'}
         </Button>
         {msg && <div className="mt-2 text-[11px] leading-5 text-accent/80">{msg}</div>}
       </Card>

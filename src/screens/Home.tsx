@@ -188,10 +188,11 @@ export function Home({
           </button>
           <button
             onClick={() => setShowCoach(true)}
-            className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-[12px]"
+            className="flex flex-col items-center rounded-2xl border border-accent/40 bg-accent/10 px-2.5 py-1.5"
             aria-label="问教练"
           >
-            🤖
+            <span className="text-[13px] leading-none">🤖</span>
+            <span className="mt-0.5 text-[9px] leading-none text-accent/80">教练</span>
           </button>
           <button
             onClick={() => setShowLog(true)}

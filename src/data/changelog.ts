@@ -1,4 +1,4 @@
-﻿export const CURRENT_VERSION = '0.7.6'
+export const CURRENT_VERSION = '0.8.0'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.8.0',
+    date: '2026-10-30',
+    title: '形象升级 · 反馈通道 · Excel 导出',
+    items: [
+      '形象换成 34 张新立绘，身材随体重分九档平滑过渡，相邻档淡入不跳变',
+      '剪裁可选择运动装 / 西装 / 日常休闲，发型发色肤色服装色都能挑，也能切回最初的经典手绘',
+      '新增「问教练」：可以聊，也能问你的饮食和花费',
+      '新增留言板：用着哪里别扭、哪里出错，直接写给我',
+      '导出改成真正的 Excel（饮食 / 运动 / 体重 三个工作表）',
+      '步数说明：系统计步器只能读到「开机以来累计」，所以要过一个零点才会准。刚装的当天数字可能偏小，属正常',
+    ],
+  },
+
   {
     version: '0.7.6',
     date: '2026-10-29',

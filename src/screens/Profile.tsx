@@ -5,8 +5,9 @@ import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
 import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
+import { Feedback } from './Feedback'
 import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
-import { downloadText, toCsv } from '../data/export'
+import { shareOrDownload, toXls } from '../data/export'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
 import { addDays, daysBetween, todayKey } from '../domain/date'
@@ -58,6 +59,7 @@ export function ProfileScreen({
 
   const [showCloud, setShowCloud] = useState(false)
   const [stepDbg, setStepDbg] = useState<StepDebug | null>(null)
+  const [showFeedback, setShowFeedback] = useState(false)
   const [hcDbg, setHcDbg] = useState<HealthProbeDebug | null>(null)
   const [showPwd, setShowPwd] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -347,22 +349,26 @@ export function ProfileScreen({
           <Button
             className="mt-1 w-full"
             onClick={async () => {
-              const csv = toCsv(data)
-              const name = `塑我-记录-${todayKey()}.csv`
               try {
-                if (navigator.clipboard?.writeText) {
-                  await navigator.clipboard.writeText(csv)
-                  setToast('CSV 已复制到剪贴板，粘贴到微信/备忘录即可')
-                  return
-                }
+                const xml = toXls(data)
+                const how = await shareOrDownload(
+                  `塑我-记录-${todayKey()}.xls`,
+                  xml,
+                  'application/vnd.ms-excel',
+                )
+                setToast(
+                  how === 'shared'
+                    ? '已发送到分享面板，可存文件或发微信'
+                    : how === 'downloaded'
+                      ? 'Excel 已下载到本机'
+                      : '内容已复制到剪贴板',
+                )
               } catch {
-                /* 落到下载 */
+                setToast('导出失败，稍后再试')
               }
-              downloadText(name, csv, 'text/csv;charset=utf-8')
-              setToast('已开始下载（浏览器有效，APK 内请用复制）')
             }}
           >
-            导出记录（CSV · 手机可直接打开）
+            导出 Excel 表格（3 个工作表）
           </Button>
           <div className="grid grid-cols-2 gap-2 pt-1">
             <Button variant="soft" onClick={onExport}>
@@ -439,6 +445,13 @@ export function ProfileScreen({
           <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
             云连接自检（开发调试）
           </Button>
+          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowFeedback(true)}>
+            留言板
+          </Button>
+          <div className="px-1 text-[10px] leading-4 text-muted/45">
+            用着哪里别扭、哪里出错，写给我（会自动复制，粘贴发给开发者即可）
+          </div>
+          {showFeedback && <Feedback onClose={() => setShowFeedback(false)} />}
           <Button
             variant="soft"
             className="mt-1 w-full"
@@ -475,6 +488,13 @@ export function ProfileScreen({
               {stepDbg.error ? <div className="text-danger">错误：{stepDbg.error}</div> : ''}
             </div>
           )}
+          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowFeedback(true)}>
+            留言板
+          </Button>
+          <div className="px-1 text-[10px] leading-4 text-muted/45">
+            用着哪里别扭、哪里出错，写给我（会自动复制，粘贴发给开发者即可）
+          </div>
+          {showFeedback && <Feedback onClose={() => setShowFeedback(false)} />}
           <Button
             variant="soft"
             className="mt-1 w-full"

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
 import { UpdateNotice } from './components/UpdateNotice'
+import { UpdateDialog } from './components/UpdateDialog'
+import { checkUpdate, type RemoteUpdate } from './data/updater'
 import { addBackHandler, installBackNav } from './data/backnav'
 import { readDemoParams } from './data/demo'
 import { useStore } from './data/store'
@@ -44,6 +46,7 @@ export default function App() {
 
   const [tab, setTab] = useState<Tab>(INITIAL_TAB)
   const [sheet, setSheet] = useState<SheetKind>(INITIAL_SHEET)
+  const [update, setUpdate] = useState<RemoteUpdate | null>(null)
 
   // 返回手势：不在首页时先回首页
   useEffect(() => {
@@ -67,6 +70,20 @@ export default function App() {
     return () => clearTimeout(t)
   }, [toast, setToast])
 
+  // 应用内更新：登录后每 6 小时查一次（必须在所有 early return 之前）
+  useEffect(() => {
+    if (!cloudUser) return
+    try {
+      const last = Number(localStorage.getItem('suwo:updateCheckedAt') ?? 0)
+      if (Date.now() - last < 6 * 3600 * 1000) return
+      localStorage.setItem('suwo:updateCheckedAt', String(Date.now()))
+    } catch {
+      /* ignore */
+    }
+    void checkUpdate().then((u) => {
+      if (u) setUpdate(u)
+    })
+  }, [cloudUser])
   if (bootstrapping) {
     return (
       <div className="mx-auto grid min-h-dvh w-full max-w-[430px] place-items-center">
@@ -84,11 +101,13 @@ export default function App() {
 
   if (!data.profile || !data.goal) return <Onboarding />
 
+
   const close = () => setSheet(null)
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-24">
       <UpdateNotice />
+      {update && <UpdateDialog update={update} onClose={() => setUpdate(null)} />}
       {tab === 'home' && (
         <Home
           onFood={() => setSheet('food')}

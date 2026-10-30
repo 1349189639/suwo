@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
         // 本地插件必须在 super.onCreate 之前注册
         registerPlugin(StepCounterPlugin.class);
         registerPlugin(HealthProbePlugin.class);
+        registerPlugin(UpdaterPlugin.class);
         super.onCreate(savedInstanceState);
 
         // 返回手势 / 返回键一律交给前端决策（关浮层 / 回首页 / 二次确认退出）。

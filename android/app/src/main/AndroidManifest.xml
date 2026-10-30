@@ -39,6 +39,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 应用内更新：允许调起安装器 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 扫码 / 拍照识别 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- 读取系统计步传感器（Android 10 起需要活动识别权限） -->

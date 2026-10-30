@@ -1,0 +1,36 @@
+# -*- coding: utf-8 -*-
+"""逐个比对线上静态资源与本地部署包的状态码、字节数、MD5。"""
+import urllib.request, os, hashlib, sys
+
+BASE = "https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com"
+ROOT = r"C:\Users\XRZ\Desktop\健身app开发\部署包"
+
+subs = [
+    "index.html",
+    "version.json",
+    "sw.js",
+    "manifest.webmanifest",
+    "assets/index--Ygt7krI.js",
+    "assets/index-DgNbeSmb.css",
+    "assets/web-CNkERT9E.js",
+    "assets/web-VXNK0IjS.js",
+]
+
+def md5(b):
+    return hashlib.md5(b).hexdigest()
+
+allok = True
+for sub in subs:
+    req = urllib.request.Request(BASE + "/" + sub, headers={"Cache-Control": "no-cache"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        body = r.read()
+        status = r.status
+    local = os.path.join(ROOT, sub.replace("/", os.sep))
+    with open(local, "rb") as f:
+        lb = f.read()
+    match = md5(body) == md5(lb)
+    ok = status == 200 and match
+    allok = allok and ok
+    print(f"[{'OK' if ok else 'FAIL'}] {sub} status={status} online={len(body)} local={len(lb)} md5={match}")
+
+sys.exit(0 if allok else 1)

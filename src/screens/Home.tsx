@@ -1,3 +1,4 @@
+import { useBackToClose } from '../components/useBackToClose'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CircleAction, ProgressBar } from '../components/ui'
@@ -67,6 +68,8 @@ export function Home({
   const [showLog, setShowLog] = useState(false)
   const [showCoach, setShowCoach] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+
+  useBackToClose(() => setShowLog(false), showLog)
   const syncStatus = useStore((s) => s.syncStatus)
   const syncNow = useStore((s) => s.syncNow)
   const [syncing, setSyncing] = useState(false)

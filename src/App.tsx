@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
 import { UpdateNotice } from './components/UpdateNotice'
+import { addBackHandler, installBackNav } from './data/backnav'
 import { readDemoParams } from './data/demo'
 import { useStore } from './data/store'
 import { Auth } from './screens/Auth'
@@ -43,6 +44,18 @@ export default function App() {
 
   const [tab, setTab] = useState<Tab>(INITIAL_TAB)
   const [sheet, setSheet] = useState<SheetKind>(INITIAL_SHEET)
+
+  // 返回手势：不在首页时先回首页
+  useEffect(() => {
+    installBackNav()
+    return addBackHandler('tab', () => {
+      if (tab !== 'home') {
+        setTab('home')
+        return true
+      }
+      return false
+    })
+  }, [tab])
 
   useEffect(() => {
     void cloudBootstrap()

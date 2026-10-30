@@ -8,6 +8,7 @@ import android.webkit.PermissionRequest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 
@@ -44,4 +45,16 @@ public class MainActivity extends BridgeActivity {
             }
         });
     }
-}
+    /**
+     * 返回键 / 侧滑手势：只要 WebView 里有历史（浮层打开时前端会 push 一条），
+     * 就后退一步关掉浮层；没有历史才真正退出 App。
+     */
+    @Override
+    public void onBackPressed() {
+        Bridge b = getBridge();
+        if (b != null && b.getWebView() != null && b.getWebView().canGoBack()) {
+            b.getWebView().goBack();
+            return;
+        }
+        super.onBackPressed();
+    }}

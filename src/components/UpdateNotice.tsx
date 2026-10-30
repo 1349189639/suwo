@@ -1,3 +1,4 @@
+import { useBackToClose } from './useBackToClose'
 import { useEffect, useState } from 'react'
 import { Button } from './ui'
 import { CHANGELOG, LATEST, type ChangelogEntry } from '../data/changelog'
@@ -29,6 +30,8 @@ function writeState(s: Record<string, NoticeState>) {
 /** 每次更新后自动弹，最多 3 次，可「不再显示」 */
 export function UpdateNotice() {
   const [entry, setEntry] = useState<ChangelogEntry | null>(null)
+
+  useBackToClose(() => setEntry(null), entry !== null)
 
   useEffect(() => {
     const st = readState()

@@ -1,3 +1,4 @@
+import { useBackToClose } from '../components/useBackToClose'
 import { useState } from 'react'
 import { Button, Card, TextField } from '../components/ui'
 import {
@@ -18,6 +19,7 @@ import {
  * 入口：浏览器地址栏加 #cloud-v2 直接打开；不改动旧版 CloudCheck 页面。
  */
 export function CloudCheckV2({ onClose }: { onClose: () => void }) {
+  useBackToClose(onClose)
   const [results, setResults] = useState<CheckResult[]>([])
   const [busy, setBusy] = useState(false)
   const [account, setAccount] = useState('')

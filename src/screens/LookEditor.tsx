@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { useStore } from '../data/store'
 import { buildFromBmi, muscleFromBuild } from '../domain/avatar'
+import { nearestBodyTier } from '../domain/avatar-assets'
 import { latestWeight } from '../domain/day'
 import { bmiBand, calcBmi } from '../domain/nutrition'
 import {
@@ -77,6 +78,20 @@ export function LookEditor() {
   const muscle = muscleFromBuild(build)
   const band = bmiBand(bmi)
   const diff = Math.round((previewKg - realKg) * 10) / 10
+  const style = look.outfitStyle ?? 'sport'
+  const tier = nearestBodyTier(build)
+  const appearanceDisabled =
+    style !== 'classic' && (style !== 'sport' || look.outfit !== 'mint' || tier !== 4)
+  const appearanceHint =
+    style === 'suit' || style === 'casual'
+      ? '这套固定穿搭只展示整体轮廓，发型、发色、肤色暂不参与变化'
+      : style !== 'sport'
+        ? undefined
+        : look.outfit !== 'mint'
+          ? '这个颜色目前只有标准档全身图，发型、发色、肤色暂不生效'
+          : tier !== 4
+            ? '当前档位只有全身站姿图，发型、发色、肤色到标准档再试'
+            : undefined
 
   return (
     <div className="anim-rise pb-2">
@@ -125,7 +140,7 @@ export function LookEditor() {
 
       <div className="space-y-4">
         <Section title="肤色">
-          <div className="flex gap-5 px-1">
+          <div className={`flex gap-5 px-1 ${appearanceDisabled ? 'pointer-events-none opacity-30' : ''}`}>
             {(Object.keys(SKIN_TONES) as SkinTone[]).map((k) => (
               <Swatch
                 key={k}
@@ -139,10 +154,11 @@ export function LookEditor() {
         </Section>
 
         <Section title="发型">
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className={`grid grid-cols-4 gap-1.5 ${appearanceDisabled ? 'pointer-events-none opacity-30' : ''}`}>
             {HAIR_STYLES.map((h) => (
               <button
                 key={h.id}
+                disabled={appearanceDisabled}
                 onClick={() => update({ hair: h.id as HairStyle })}
                 className={`rounded-2xl border px-1 py-2 text-center ${
                   look.hair === h.id ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface2/40'
@@ -155,7 +171,7 @@ export function LookEditor() {
         </Section>
 
         <Section title="发色">
-          <div className="flex gap-5 px-1">
+          <div className={`flex gap-5 px-1 ${appearanceDisabled ? 'pointer-events-none opacity-30' : ''}`}>
             {(Object.keys(HAIR_COLORS) as HairColor[]).map((k) => (
               <Swatch
                 key={k}
@@ -167,6 +183,10 @@ export function LookEditor() {
             ))}
           </div>
         </Section>
+
+        {appearanceHint && (
+          <p className="px-1 text-[10.5px] leading-4 text-muted/50">{appearanceHint}</p>
+        )}
 
         <Section title="款式">
           <div className="grid grid-cols-2 gap-2 px-1">

@@ -6,7 +6,7 @@
  *  - 跨源请求（CloudBase 数据库 / 认证 / CDN）：直接放行，不做缓存。
  */
 
-const CACHE = 'suwo-v2'
+const CACHE = 'suwo-v3'
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg']
 
 self.addEventListener('install', (event) => {

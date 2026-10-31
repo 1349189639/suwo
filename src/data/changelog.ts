@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '0.9.0'
+export const CURRENT_VERSION = '0.9.1'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.1',
+    date: '2026-10-31',
+    title: '形象清晰度 · 扫码水分 · 食物搜索',
+    items: [
+      '人物改为按最近档位显示单张立绘，去掉相邻两档半透明叠图，减少重影和发虚',
+      '跑步、卧推等非站立动作继续使用手绘小人，未覆盖的发型、发色、肤色选项会在外观页给出提示',
+      '扫码饮品按品类和品牌补充含水量，历史记录汇总时兜底估算水分',
+      '食物搜索补充包子等品类同义词，直接命中排在前面',
+    ],
+  },
+
   {
     version: '0.9.0',
     date: '2026-10-31',

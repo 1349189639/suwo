@@ -454,6 +454,10 @@ export function Home({
         步数不准？点这里手动填写
       </button>
 
+      <p className="mt-1 px-1 text-center text-[10px] leading-4 text-muted/40">
+        华为 / 荣耀机型对计步权限管得比较严，数字可能偏低或少报，这时直接手动填写即可
+      </p>
+
       {/* 今日记录 */}
       <div className="mb-2 mt-4 flex items-end justify-between px-1">
         <h3 className="text-[13px] font-semibold tracking-wide text-muted">今天的记录</h3>

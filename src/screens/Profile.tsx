@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Button, Card, Field, NumberInput, Pill, SectionTitle, Segmented, Sheet, inputClass } from '../components/ui'
 import { explainError } from '../data/cloud.v2'
@@ -7,6 +7,8 @@ import type { SyncStatus } from '../data/sync'
 import { CloudCheck } from './CloudCheck'
 import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
 import { shareOrDownload, toXls } from '../data/export'
+import { nativeVersion } from '../data/updater'
+import { CURRENT_VERSION } from '../data/changelog'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
 import { addDays, daysBetween, todayKey } from '../domain/date'
@@ -57,6 +59,11 @@ export function ProfileScreen({
   const weight = latestWeight(data) ?? goal?.startWeightKg ?? 70
 
   const [showCloud, setShowCloud] = useState(false)
+  const [ver, setVer] = useState<{ code: number; name: string } | null>(null)
+
+  useEffect(() => {
+    void nativeVersion().then(setVer)
+  }, [])
   const [stepDbg, setStepDbg] = useState<StepDebug | null>(null)
   const [hcDbg, setHcDbg] = useState<HealthProbeDebug | null>(null)
   const [showPwd, setShowPwd] = useState(false)
@@ -588,7 +595,7 @@ export function ProfileScreen({
       <div className="mt-4 mb-6">
         <SectionTitle>关于</SectionTitle>
         <Card className="space-y-2">
-          <Row label="版本" value="0.5.0 · PWA 预览版" />
+          <Row label="版本" value={ver && ver.code > 0 ? `${CURRENT_VERSION} · APK v${ver.name}（${ver.code}）` : `${CURRENT_VERSION} · 网页版`} />
           <Row label="定位" value="个人使用的热量账本" />
           <p className="pt-1 text-[10.5px] leading-4 text-muted/50">
             本应用提供热量与训练量的估算与记录，不提供医疗诊断或治疗建议。身体不适、慢性病或孕期请咨询专业医师。

@@ -1,3 +1,4 @@
+import { guessWater } from './water'
 import { computeStreak, dayScore, spiritFrom, spiritLabel, weekScore } from './adherence'
 import { stepsKcal } from './activity'
 import { buildFromBmi, muscleFromBuild, smoothWeight, stageFromBmi, type BodyStage } from './avatar'
@@ -83,7 +84,13 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   }
   const cost = Math.round(MEAL_ORDER.reduce((a, m) => a + mealCosts[m], 0) * 100) / 100
   const water = data.water?.[date] ?? 0
-  const foodWater = Math.round(meals.reduce((a, l) => a + (l.water ? (l.grams * l.water) / 100 : 0), 0))
+  // 老记录可能没存水分/纤维，这里按名称兜底估算，避免显示 0
+  const foodWater = Math.round(
+    meals.reduce((a, l) => {
+      const pct = l.water ?? guessWater(l.name)
+      return a + (pct ? (l.grams * pct) / 100 : 0)
+    }, 0),
+  )
   const budget = targets.kcal + exerciseKcal
   const remaining = budget - Math.round(intake.kcal)
   const volume = exercises.reduce((a, e) => a + (e.sets ?? 0) * (e.reps ?? 0) * (e.weightKg ?? 0), 0)

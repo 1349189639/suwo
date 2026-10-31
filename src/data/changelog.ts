@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '0.8.0'
+export const CURRENT_VERSION = '0.9.0'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.0',
+    date: '2026-10-31',
+    title: '版本显示 · 步数提示 · 扫码营养估算',
+    items: [
+      '关于页显示当前前端版本，并在 APK 内读取本机真实版本号',
+      '华为 / 荣耀机型计步权限较严，数字偏低时可直接手动填写',
+      '扫码商品补充含水量与纤维估算',
+      '修复首页水分卡片文字换行拥挤',
+    ],
+  },
+
   {
     version: '0.8.0',
     date: '2026-10-30',

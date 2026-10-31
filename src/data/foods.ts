@@ -1,3 +1,4 @@
+export { guessFiber, guessWater } from '../domain/water'
 import type { FoodCategory, FoodItem } from '../domain/types'
 
 type Spec = Omit<FoodItem, 'id'>
@@ -394,7 +395,7 @@ export function countByCategory(category: FoodCategory): number {
 }
 
 /** 按名称/分类粗略估算含水量（%）。用于扫码、AI、自定义等没有水分数据的来源。 */
-export function guessWater(name: string, category: FoodCategory): number | undefined {
+export function guessWaterLocal(name: string, category: FoodCategory): number | undefined {
   const byCat = WATER_BY_CATEGORY[category]
   if (byCat) return byCat
   const hit = WATER_BY_NAME.find(([k]) => name.includes(k))
@@ -402,6 +403,14 @@ export function guessWater(name: string, category: FoodCategory): number | undef
   // 常见高水分关键词
   const extra: [string, number][] = [
     ['奶', 89],
+    ['乳', 89],
+    ['金典', 89],
+    ['特仑苏', 89],
+    ['伊利', 89],
+    ['蒙牛', 89],
+    ['光明', 89],
+    ['安慕希', 87],
+    ['纯甄', 87],
     ['豆浆', 93],
     ['酸奶', 85],
     ['果汁', 88],
@@ -420,7 +429,7 @@ export function guessWater(name: string, category: FoodCategory): number | undef
 }
 
 /** 按分类粗略估算膳食纤维（g/100g） */
-export function guessFiber(name: string, category: FoodCategory): number {
+export function guessFiberLocal(name: string, category: FoodCategory): number {
   if (/奶|豆奶|可乐|茶|咖啡|果汁|水/.test(name)) return 0
   return FIBER_BY_CATEGORY[category] ?? 0
 }

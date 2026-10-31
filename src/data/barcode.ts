@@ -59,13 +59,19 @@ export async function lookupBarcode(code: string): Promise<BarcodeProduct | null
 }
 
 /** 扫码结果转成可复用的自定义食物 */
+import { guessFiber, guessWater } from './foods'
+
 export function toFoodItem(p: BarcodeProduct, category: FoodCategory = 'snack'): FoodItem {
   return {
     id: `bc_${p.code}`,
     name: p.brand ? `${p.name}（${p.brand}）` : p.name,
     category,
     tags: ['扫码', ...(p.brand ? [p.brand] : [])],
-    per100: p.per100,
+    per100: {
+      ...p.per100,
+      fiber: p.per100.fiber ?? guessFiber(p.name, category),
+      water: p.per100.water ?? guessWater(p.name, category),
+    },
     defaultGrams: 100,
     custom: true,
   }

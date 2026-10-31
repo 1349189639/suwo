@@ -1,0 +1,66 @@
+# -*- coding: utf-8 -*-
+"""线上回读验证：index 引用、version、新 JS、avatar 素材可达性。"""
+import urllib.request, json, sys
+
+BASE = "https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com"
+
+def get(path, retries=3):
+    last = None
+    for _ in range(retries):
+        try:
+            req = urllib.request.Request(BASE + path, headers={"Cache-Control": "no-cache"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.status, r.headers.get("Content-Type", ""), r.read()
+        except Exception as e:
+            last = e
+    raise last
+
+checks = []
+
+# 1. index.html
+st, ct, body = get("/index.html")
+html = body.decode("utf-8", "ignore")
+checks.append(("index.html", st, "index-BZa3M5Vl.js" in html))
+
+# 2. version.json
+st, ct, body = get("/version.json")
+v = json.loads(body.decode("utf-8-sig"))
+checks.append(("version.json", st, v.get("version") == "0.8.0"))
+print("version:", v.get("version"))
+
+# 3. new JS chunk
+st, ct, body = get("/assets/index-BZa3M5Vl.js")
+checks.append(("new JS chunk", st, len(body) > 1000000))
+print("JS bytes:", len(body), "type:", ct)
+
+# 4. avatar samples (male suit, female casual, fat body-8, mother male-body-4)
+for a in [
+    "/avatar/male-outfit-suit-4.png",
+    "/avatar/female-outfit-casual-4.png",
+    "/avatar/male-body-8.png",
+    "/avatar/female-body-4.png",
+    "/avatar/male-body-0.png",
+]:
+    st, ct, body = get(a)
+    checks.append((a, st, ct.startswith("image/png") and len(body) > 20000))
+
+# 5. count reachable avatar files from manifest list
+import os
+local = r"C:\Users\XRZ\Desktop\健身app开发\app\public\avatar"
+files = sorted(os.listdir(local))
+ok = 0
+for f in files:
+    st, ct, body = get("/avatar/" + f)
+    if st == 200 and ct.startswith("image/png"):
+        ok += 1
+checks.append(("avatar all reachable", 200, ok == len(files)))
+print(f"avatar reachable: {ok}/{len(files)}")
+
+print("\n=== RESULT ===")
+allok = True
+for name, st, passed in checks:
+    flag = "OK" if passed else "FAIL"
+    if not passed:
+        allok = False
+    print(f"[{flag}] {name} status={st}")
+sys.exit(0 if allok else 1)

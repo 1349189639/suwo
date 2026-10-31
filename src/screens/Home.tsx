@@ -399,11 +399,14 @@ export function Home({
           },
         ].map((m) => (
           <div key={m.label} className="rounded-2xl border border-line/60 bg-surface/70 p-2.5">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-muted">{m.label}</span>
-              <span className="tabular text-[12px] font-semibold">
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="shrink-0 whitespace-nowrap text-[11px] text-muted">{m.label}</span>
+              <span className="tabular whitespace-nowrap text-[12px] font-semibold">
                 {Math.round(m.v)}
-                <span className="text-[10px] font-normal text-muted">/{m.t}{('u' in m ? 'ml' : 'g')}</span>
+                <span className="text-[9.5px] font-normal text-muted">
+                  /{m.t}
+                  {('u' in m ? 'ml' : 'g')}
+                </span>
               </span>
             </div>
             <div className="mt-1.5">

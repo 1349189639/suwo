@@ -392,3 +392,35 @@ export function filterFoods(
 export function countByCategory(category: FoodCategory): number {
   return FOODS.filter((f) => f.category === category).length
 }
+
+/** 按名称/分类粗略估算含水量（%）。用于扫码、AI、自定义等没有水分数据的来源。 */
+export function guessWater(name: string, category: FoodCategory): number | undefined {
+  const byCat = WATER_BY_CATEGORY[category]
+  if (byCat) return byCat
+  const hit = WATER_BY_NAME.find(([k]) => name.includes(k))
+  if (hit) return hit[1]
+  // 常见高水分关键词
+  const extra: [string, number][] = [
+    ['奶', 89],
+    ['豆浆', 93],
+    ['酸奶', 85],
+    ['果汁', 88],
+    ['可乐', 90],
+    ['茶', 95],
+    ['咖啡', 98],
+    ['汤', 92],
+    ['粥', 90],
+    ['西瓜', 92],
+    ['橙', 87],
+    ['苹果', 85],
+    ['梨', 84],
+  ]
+  const e = extra.find(([k]) => name.includes(k))
+  return e ? e[1] : undefined
+}
+
+/** 按分类粗略估算膳食纤维（g/100g） */
+export function guessFiber(name: string, category: FoodCategory): number {
+  if (/奶|豆奶|可乐|茶|咖啡|果汁|水/.test(name)) return 0
+  return FIBER_BY_CATEGORY[category] ?? 0
+}

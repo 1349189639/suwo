@@ -1,13 +1,10 @@
 ﻿{
-  "version": "0.9.0",
+  "version": "1.2",
   "date": "2026-10-31",
-  "nativeCode": 2,
-  "apkUrl": "",
-  "sizeMb": 6,
+  "nativeCode": 3,
+  "apkUrl": "https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.2-code3.apk",
+  "sizeMb": 14.5,
   "notes": [
-    "应用内更新：以后有新版本会在 App 里直接提示，点一下就能装",
-    "返回手势修好了：侧滑关闭浮层、回首页、二次确认退出",
-    "贴图形象 + 款式选择，可切回经典手绘",
-    "留言板 / AI 教练 / Excel 导出"
+    "内部测试：仅更新版本号，验证 App 内检查更新、下载和安装链路"
   ]
 }

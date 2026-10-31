@@ -1,4 +1,4 @@
-﻿package app.suwo.fit;
+package app.suwo.fit;
 
 import android.content.Intent;
 import android.net.Uri;

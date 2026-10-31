@@ -365,6 +365,44 @@ export function searchFoods(query: string, custom: FoodItem[], limit = 60): Food
     .slice(0, limit)
 }
 
+/** 品类词 → 具体名字里的关键词。解决「包子」搜不到「肉包/菜包」这类问题。 */
+const SEARCH_GROUPS: [string, string[]][] = [
+  ['包子', ['包', '馒', '花卷', '烧麦', '小笼', '生煎', '锅贴']],
+  ['饺子', ['饺', '馄饨', '抄手', '云吞']],
+  ['面食', ['面', '粉', '米线', '河粉', '饼', '馍']],
+  ['米饭', ['米饭', '米', '粥', '饭团', '煲仔']],
+  ['粥', ['粥', '糊', '汤饭']],
+  ['鸡蛋', ['蛋']],
+  ['牛奶', ['奶', '乳']],
+  ['豆浆', ['豆浆', '豆奶']],
+  ['水果', ['苹果', '香蕉', '橙', '梨', '葡萄', '西瓜', '桃', '莓', '柚', '芒', '荔', '樱', '菠萝', '猕猴桃']],
+  ['蔬菜', ['菜', '瓜', '茄', '椒', '菇', '笋', '萝卜', '菠菜', '生菜', '西兰花', '豆角', '芹', '韭']],
+  ['鸡肉', ['鸡']],
+  ['牛肉', ['牛']],
+  ['羊肉', ['羊']],
+  ['猪肉', ['猪', '肉', '排骨', '五花']],
+  ['海鲜', ['鱼', '虾', '蟹', '贝', '蛤', '鱿']],
+  ['豆制品', ['豆腐', '豆干', '腐竹', '千张', '豆皮']],
+  ['坚果', ['坚果', '花生', '核桃', '杏仁', '腰果', '瓜子', '开心果', '夏威夷', '碧根']],
+  ['零食', ['薯片', '饼', '糖', '巧克力', '果干', '膨化', '条', '酥']],
+  ['饮料', ['可乐', '雪碧', '茶', '咖啡', '果汁', '汽水', '苏打', '奶茶']],
+  ['奶茶', ['奶茶', '珍奶']],
+  ['咖啡', ['咖啡', '拿铁', '美式', '摩卡']],
+  ['蛋糕', ['蛋糕', '慕斯', '芝士', '裱花']],
+  ['烧烤', ['烤', '串', '烧']],
+  ['快餐', ['汉堡', '薯条', '炸鸡', '鸡块', '披萨', '卷']],
+]
+
+/** 把查询词扩展成一组候选关键词（含查询词本身） */
+function expandQuery(q: string): string[] {
+  const words = new Set<string>([q])
+  for (const [group, keys] of SEARCH_GROUPS) {
+    if (q.includes(group) || group.includes(q)) {
+      for (const k of keys) words.add(k)
+    }
+  }
+  return [...words]
+}
 export function filterFoods(
   query: string,
   custom: FoodItem[],
@@ -383,13 +421,24 @@ export function filterFoods(
         ? all
         : all.filter((f) => f.category === category)
   if (!q) return scoped
-  return scoped.filter(
-    (f) =>
-      f.name.toLowerCase().includes(q) ||
-      f.tags.some((t) => t.toLowerCase().includes(q)),
-  )
-}
 
+  const words = expandQuery(q)
+  const scored = scoped
+    .map((f) => {
+      const name = f.name.toLowerCase()
+      const tags = f.tags.join(' ').toLowerCase()
+      if (name.includes(q) || tags.includes(q)) return { f, score: 100 }
+      for (const w of words) {
+        if (w !== q && name.includes(w)) return { f, score: 70 }
+      }
+      if (q.length <= 2 && [...q].every((c) => name.includes(c))) return { f, score: 50 }
+      return { f, score: 0 }
+    })
+    .filter((x) => x.score > 0)
+
+  scored.sort((a, b) => b.score - a.score || a.f.name.length - b.f.name.length)
+  return scored.map((x) => x.f)
+}
 export function countByCategory(category: FoodCategory): number {
   return FOODS.filter((f) => f.category === category).length
 }

@@ -266,7 +266,7 @@ export function FoodDiary({
           value={query}
           onChange={(v) => {
             setQuery(v)
-            if (v.trim() && category !== 'all' && category !== 'custom') setCategory('all')
+            if (v.trim() && category !== 'all') setCategory('all')
           }}
           placeholder="搜食物，如 鸡胸肉 / 米饭 / 奶茶"
           prefix="🔍"

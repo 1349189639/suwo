@@ -411,16 +411,14 @@ export function filterFoods(
   const q = query.trim().toLowerCase()
   const all = [...FOODS, ...custom]
   // 有关键词时忽略分类：搜「玉米」不该被当前分类挡住
+  // 有查询词时一律搜全库（含自定义食物），不被当前分类挡住
   const scoped = q
-    ? category === 'custom'
-      ? custom
-      : all
+    ? all
     : category === 'custom'
       ? custom
       : category === 'all'
         ? all
         : all.filter((f) => f.category === category)
-  if (!q) return scoped
 
   const words = expandQuery(q)
   const scored = scoped

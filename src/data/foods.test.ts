@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { filterFoods } from './foods'
 
 describe('食物搜索', () => {
@@ -22,6 +22,11 @@ describe('食物搜索', () => {
   it('搜索时不受当前分类限制', () => {
     const all = filterFoods('包子', [], 'fruit')
     expect(all.length).toBeGreaterThan(0)
+  })
+
+  it('停在自定义分类时，搜索仍能搜到内置食物', () => {
+    const r = filterFoods('玉米', [], 'custom')
+    expect(r.some((f) => f.name.includes('玉米'))).toBe(true)
   })
 
   it('空关键词按分类过滤', () => {

@@ -8,6 +8,7 @@ import { CloudCheck } from './CloudCheck'
 import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
 import { shareOrDownload, toXls } from '../data/export'
 import { nativeVersion } from '../data/updater'
+import { pageBuildId } from '../data/build'
 import { CURRENT_VERSION } from '../data/changelog'
 import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
@@ -595,7 +596,15 @@ export function ProfileScreen({
       <div className="mt-4 mb-6">
         <SectionTitle>关于</SectionTitle>
         <Card className="space-y-2">
-          <Row label="版本" value={ver && ver.code > 0 ? `${CURRENT_VERSION} · APK v${ver.name}（${ver.code}）` : `${CURRENT_VERSION} · 网页版`} />
+          <Row
+            label="版本"
+            value={
+              CURRENT_VERSION +
+              ' · 页面 ' +
+              pageBuildId() +
+              (ver && ver.code > 0 ? ' · APK v' + ver.name + '（' + ver.code + '）' : '')
+            }
+          />
           <Row label="定位" value="个人使用的热量账本" />
           <p className="pt-1 text-[10.5px] leading-4 text-muted/50">
             本应用提供热量与训练量的估算与记录，不提供医疗诊断或治疗建议。身体不适、慢性病或孕期请咨询专业医师。

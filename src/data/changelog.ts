@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '0.9.1'
+export const CURRENT_VERSION = '0.9.2'
 
 export interface ChangelogEntry {
   version: string
@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.2',
+    date: '2026-11-01',
+    title: '旧缓存自动刷新',
+    items: [
+      '启动时比对线上首页引用的 JS，发现 WebView 或缓存仍在跑旧版就自动带版本参数刷新一次',
+      '离线缓存版本升级，每次启动检查 Service Worker 更新，减少部署后仍打开旧页面的情况',
+    ],
+  },
+
   {
     version: '0.9.1',
     date: '2026-10-31',

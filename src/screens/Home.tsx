@@ -61,6 +61,7 @@ export function Home({
   const spirit = spiritInfo.score
   const streak = currentStreak(data)
   const action = data.avatarAction ?? 'idle'
+  const setAvatarAction = useStore((s) => s.setAvatarAction)
   const stage = stageInfo(body?.stage ?? 3)
 
   const [talk, setTalk] = useState<string | null>(null)
@@ -70,6 +71,14 @@ export function Home({
   const [showFeedback, setShowFeedback] = useState(false)
 
   useBackToClose(() => setShowLog(false), showLog)
+
+  // 动作是"临时动画"：播完自动回到静止态。
+  // 否则 avatarAction 会被持久保存，贴图形象只在 idle 下使用，用户就会一直看到手绘版。
+  useEffect(() => {
+    if (action === 'idle') return
+    const t = setTimeout(() => setAvatarAction('idle'), 8000)
+    return () => clearTimeout(t)
+  }, [action, setAvatarAction])
   const syncStatus = useStore((s) => s.syncStatus)
   const syncNow = useStore((s) => s.syncNow)
   const [syncing, setSyncing] = useState(false)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterFoods } from './foods'
+import { filterFoods, splitPickerResults } from './foods'
 
 describe('食物搜索', () => {
   it('搜「包子」能搜到名字里没有"包子"的面点', () => {
@@ -32,5 +32,23 @@ describe('食物搜索', () => {
   it('空关键词按分类过滤', () => {
     const r = filterFoods('', [], 'fruit')
     expect(r.every((f) => f.category === 'fruit')).toBe(true)
+  })
+})
+
+describe('选择器结果拆分', () => {
+  it('命中项恰好在最近使用里时，搜索仍要显示它', () => {
+    const list = filterFoods('玉米', [], 'all')
+    expect(list.length).toBeGreaterThan(0)
+    const first = list[0]
+    const split = splitPickerResults(list, [first.id], '玉米')
+    expect(split.total).toBeGreaterThan(0)
+    expect(split.rest.some((f) => f.id === first.id)).toBe(true)
+  })
+
+  it('无关键词时才拆出「最近使用」', () => {
+    const list = filterFoods('', [], 'all')
+    const split = splitPickerResults(list, [list[0].id], '')
+    expect(split.recent.length).toBe(1)
+    expect(split.rest.some((f) => f.id === list[0].id)).toBe(false)
   })
 })

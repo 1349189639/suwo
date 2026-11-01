@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { BarcodeScanner } from '../components/BarcodeScanner'
 import { PhotoRecognizer } from './PhotoRecognizer'
 import { Button, Card, Field, NumberField, Pill, ProgressBar, TextField } from '../components/ui'
-import { filterFoods } from '../data/foods'
+import { filterFoods, splitPickerResults } from '../data/foods'
 import { estimateFood } from '../data/vision'
 import { useStore } from '../data/store'
 import { addDays, formatCN, todayKey } from '../domain/date'
@@ -113,9 +113,7 @@ export function FoodDiary({
 
   const results = useMemo(() => {
     const list = filterFoods(query, data.customFoods, category)
-    const recent = list.filter((f) => recentIds.includes(f.id))
-    const rest = list.filter((f) => !recentIds.includes(f.id))
-    return { recent: query ? [] : recent, rest, total: list.length }
+    return splitPickerResults(list, recentIds, query)
   }, [query, category, data.customFoods, recentIds])
 
   const openPicker = (m: Meal) => {

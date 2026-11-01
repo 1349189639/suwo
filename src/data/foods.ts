@@ -480,3 +480,18 @@ export function guessFiberLocal(name: string, category: FoodCategory): number {
   if (/奶|豆奶|可乐|茶|咖啡|果汁|水/.test(name)) return 0
   return FIBER_BY_CATEGORY[category] ?? 0
 }
+
+/**
+ * 把搜索结果拆成「最近常用」和「其余」。
+ * 注意：有关键词时不能再按 recentIds 排除，否则命中的恰好是常用项时两边都会空。
+ */
+export function splitPickerResults(
+  list: FoodItem[],
+  recentIds: string[],
+  query: string,
+): { recent: FoodItem[]; rest: FoodItem[]; total: number } {
+  if (query.trim()) return { recent: [], rest: list, total: list.length }
+  const recent = list.filter((f) => recentIds.includes(f.id))
+  const rest = list.filter((f) => !recentIds.includes(f.id))
+  return { recent, rest, total: list.length }
+}

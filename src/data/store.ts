@@ -84,6 +84,8 @@ interface Store {
   cloudBootstrap: () => Promise<void>
   /** 云端账号密码登录，首次登录自动合并旧本地数据。 */
   cloudLogin: (account: string, password: string) => Promise<void>
+  /** 验证码登录/注册已经拿到会话后，走同一套云端拉取与数据迁移 */
+  cloudCompleteLogin: () => Promise<void>
   /** 退出云端登录并清掉本机离线副本。 */
   cloudLogout: () => Promise<void>
   cloudChangePassword: (oldPassword: string, newPassword: string) => Promise<void>
@@ -143,6 +145,16 @@ export const useStore = create<Store>((set, get) => {
         void pushOnce()
       }
     }
+  }
+
+  /** 登录成功后统一收尾：切换命名空间、拉云端、合并旧本地数据、补推一次 */
+  async function finishLogin(user: CloudUser): Promise<void> {
+    setActiveAccount(user.uid)
+    const result = await bootstrapForUser(user)
+    set({ cloudUser: user, data: result.data, syncStatus: 'syncing' })
+    seedDemoIfNeeded()
+    writeLocalCache(user.uid, get().data)
+    await pushOnce()
   }
 
   return {
@@ -352,12 +364,13 @@ export const useStore = create<Store>((set, get) => {
 
     cloudLogin: async (account, password) => {
       const user = await cloud.signIn(account, password)
-      setActiveAccount(user.uid)
-      const result = await bootstrapForUser(user)
-      set({ cloudUser: user, data: result.data, syncStatus: 'syncing' })
-      seedDemoIfNeeded()
-      writeLocalCache(user.uid, get().data)
-      await pushOnce()
+      await finishLogin(user)
+    },
+
+    cloudCompleteLogin: async () => {
+      const user = await cloud.currentUser()
+      if (!user) throw new Error('验证通过但没拿到登录状态，请重试一次')
+      await finishLogin(user)
     },
 
     cloudLogout: async () => {

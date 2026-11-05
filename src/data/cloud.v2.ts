@@ -181,9 +181,72 @@ export async function deleteCloudAccount(password: string): Promise<void> {
 }
 
 /**
- * 前端自助注册（用户名 + 密码）。
- * ⚠ 当前云端仅开启 usernamePassword，未开通邮件/短信验证码通道：按官方约定注册必须完成验证码，
- * 此方法作为预留封装，界面暂不开放；待开通邮件 OTP 后再接入 signUp + data.verifyOtp 流程。
+ * 前端自助注册（短信验证码，A 方向）。
+ * 云端已开 phone=true；一条链路同时覆盖「注册」和「验证码登录」：
+ *   signUp({ phone, password }) → 返回 data.verifyOtp 回调 → 用户填码后 verifyOtp({ token })
+ * ⚠ 参数是 phone，不是 phone_number（后者会掉进「一步式 oauth」分支，必然失败）。
+ */
+export interface PhoneAuthFlow {
+  /** 提交短信验证码，成功后返回云端用户 */
+  verify: (token: string) => Promise<CloudUser>
+}
+
+/** 手机号归一化：接受 13800138000 / +8613800138000 / 86 开头 */
+export function normalizePhone(input: string): string {
+  const digits = input.replace(/[^\d]/g, '')
+  if (!digits) return ''
+  const local = digits.startsWith('86') && digits.length > 11 ? digits.slice(2) : digits
+  return `+86${local}`
+}
+
+/** 校验国内手机号（11 位、1 开头） */
+export function isValidPhone(input: string): boolean {
+  return /^1[3-9]\d{9}$/.test(input.replace(/[^\d]/g, '').replace(/^86/, ''))
+}
+
+function phoneFlowFrom(res: any): PhoneAuthFlow {
+  if (res?.error) throw new Error(describeRaw(res.error))
+  const data = res?.data
+  if (!data || typeof data.verifyOtp !== 'function') {
+    throw new Error('云端没有返回验证码回调：确认环境已开启「短信验证码」登录方式')
+  }
+  return {
+    async verify(token: string): Promise<CloudUser> {
+      let out: any
+      try {
+        out = await data.verifyOtp({ token })
+      } catch (e) {
+        throw new Error(describeRaw(e))
+      }
+      if (out?.error) throw new Error(describeRaw(out.error))
+      const user = pickUser(out) ?? (await currentUser())
+      if (!user) throw new Error('验证通过但没有拿到用户信息，请重试')
+      return user
+    },
+  }
+}
+
+/** 注册：手机号 + 密码，发短信验证码 */
+export async function startPhoneSignUp(phone: string, password?: string): Promise<PhoneAuthFlow> {
+  const a: any = auth()
+  const res = await a.signUp({ phone: normalizePhone(phone), password })
+  return phoneFlowFrom(res)
+}
+
+/** 验证码登录：只认已存在的账号，不会顺手建号 */
+export async function startPhoneLogin(phone: string): Promise<PhoneAuthFlow> {
+  const a: any = auth()
+  const p = normalizePhone(phone)
+  if (typeof a.signInWithOtp === 'function') {
+    return phoneFlowFrom(await a.signInWithOtp({ phone: p, options: { shouldCreateUser: false } }))
+  }
+  // 极老版本 SDK 没有 signInWithOtp：退回 signUp（按 is_user 分流，老号也是登录）
+  return phoneFlowFrom(await a.signUp({ phone: p }))
+}
+
+/**
+ * 前端自助注册（用户名 + 密码）——旧预留封装，保留以免外部引用断裂。
+ * 新流程请用 startPhoneSignUp（短信验证码）。
  */
 export async function signUpCloud(username: string, password: string): Promise<CloudUser> {
   const res = await auth().signUp({ username, password })

@@ -6,7 +6,7 @@ import { filterFoods, splitPickerResults } from '../data/foods'
 import { estimateFood } from '../data/vision'
 import { useStore } from '../data/store'
 import { addDays, formatCN, todayKey } from '../domain/date'
-import { foodHighlights } from '../domain/highlights'
+import { HighlightChips } from '../components/HighlightChips'
 import { guessFiberByName, guessWater } from '../domain/water'
 import { summarizeDay, targetsFor } from '../domain/day'
 import {
@@ -205,22 +205,7 @@ export function FoodDiary({
           每 100g · {Math.round(picked.per100.kcal)} kcal · 蛋白 {picked.per100.p}g · 碳水{' '}
           {picked.per100.c}g · 脂肪 {picked.per100.f}g
         </div>
-        {(() => {
-          const marks = foodHighlights(picked.name, picked.tags)
-          if (marks.length === 0) return null
-          return (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {marks.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] text-accent/90"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )
-        })()}
+        <HighlightChips name={picked.name} tags={picked.tags} className="mt-1.5" />
 
         <div className="mt-5 space-y-3">
           <Field label="份量" hint={`加入${MEAL_LABEL[meal]}`}>
@@ -698,6 +683,7 @@ export function FoodDiary({
                         {it.water ? ` · 水 ${Math.round((it.grams * it.water) / 100)}ml` : ''}
                         {it.cost ? ` · ¥${it.cost.toFixed(1)}` : ''}
                       </div>
+                      <HighlightChips name={it.name} className="mt-0.5" />
                     </button>
                     <div className="flex items-center gap-2">
                       <span className="tabular text-[12px] text-muted">{it.kcal}</span>

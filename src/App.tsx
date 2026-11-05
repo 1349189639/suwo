@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
+import { HighlightSheet } from './components/HighlightSheet'
 import { UpdateNotice } from './components/UpdateNotice'
 import { UpdateDialog } from './components/UpdateDialog'
 import { checkUpdate, type RemoteUpdate } from './data/updater'
@@ -214,6 +215,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <HighlightSheet />
     </div>
   )
 }

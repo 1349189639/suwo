@@ -45,6 +45,11 @@ interface Store {
   offerUndo: (text: string, run: () => void) => void
   clearUndo: () => void
 
+  /** 点开某个营养记忆点时的说明弹层 */
+  highlight: string | null
+  showHighlight: (key: string) => void
+  hideHighlight: () => void
+
   // ===== 原有业务方法（签名保持不变，禁止改名） =====
   saveProfile: (profile: Profile, weightKg: number) => void
   saveGoal: (goal: Goal) => void
@@ -152,6 +157,10 @@ export const useStore = create<Store>((set, get) => {
     undo: null,
     offerUndo: (text, run) => set({ undo: { text, run } }),
     clearUndo: () => set({ undo: null }),
+
+    highlight: null,
+    showHighlight: (key) => set({ highlight: key }),
+    hideHighlight: () => set({ highlight: null }),
 
     saveProfile: (profile, weightKg) => {
       const data = { ...get().data, profile }

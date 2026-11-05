@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foodHighlights } from './highlights'
+import { HIGHLIGHT_INFO, foodHighlights, highlightInfo } from './highlights'
 
 describe('食物记忆点', () => {
   it('菠菜显示钾', () => {
@@ -21,5 +21,21 @@ describe('食物记忆点', () => {
 
   it('最多给三个，避免糊一整屏', () => {
     expect(foodHighlights('菠菜').length).toBeLessThanOrEqual(3)
+  })
+
+  it('每个记忆点都写全了四种目标的说明', () => {
+    for (const [key, info] of Object.entries(HIGHLIGHT_INFO)) {
+      expect(info.what.length, key).toBeGreaterThan(4)
+      expect(info.amount.length, key).toBeGreaterThan(4)
+      for (const g of ['lose', 'cut', 'bulk', 'maintain'] as const) {
+        expect(info.benefit[g].length, `${key}/${g}`).toBeGreaterThan(2)
+      }
+    }
+  })
+
+  it('标签只返回有说明的记忆点，点开不会空弹窗', () => {
+    for (const n of ['菠菜', '全脂牛奶', '三文鱼', '咖啡', '海带', '核桃', '鸡蛋']) {
+      for (const k of foodHighlights(n)) expect(highlightInfo(k), `${n}/${k}`).not.toBeNull()
+    }
   })
 })

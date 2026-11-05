@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Button, CircleAction, Field, NumberField, ProgressBar, Sheet, inputClass } from '../components/ui'
 import { ChangelogList } from '../components/UpdateNotice'
+import { HighlightChips } from '../components/HighlightChips'
 import { Coach } from './Coach'
 import { Feedback } from './Feedback'
 import { isNativeApp, readNativeSteps } from '../data/steps'
@@ -535,6 +536,7 @@ export function Home({
               ) : (
                 <div className="text-[11px] text-muted/70">{e.meta}</div>
               )}
+              {e.kind === 'food' && <HighlightChips name={e.name} className="mt-0.5" />}
             </button>
             <div className="flex items-center gap-2">
               <span className={`tabular text-[13px] font-semibold ${e.kcal < 0 ? 'text-accent' : 'text-ink'}`}>

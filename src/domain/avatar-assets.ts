@@ -1,3 +1,4 @@
+import { styleDef } from './look'
 import type { Look } from './look'
 import type { AvatarAction, Gender } from './types'
 
@@ -46,14 +47,16 @@ export function resolveIdlePngShot(
   look: Look,
   action: AvatarAction = 'idle',
 ): AvatarShot | null {
-  const style = look.outfitStyle ?? 'sport'
+  const def = styleDef(look.outfitStyle ?? 'sport')
 
-  if (style === 'classic' || action !== 'idle') return null
+  if (def.kind === 'vector' || action !== 'idle') return null
 
-  if (style === 'suit' || style === 'casual') {
-    return { src: `/avatar/${gender}-outfit-${style}-4.png`, opacity: 1, zoom: 0 }
+  // 固定配色的形象：一张整体图，不随体型/配色变化
+  if (def.singleAsset) {
+    return { src: def.singleAsset.replace('{gender}', gender), opacity: 1, zoom: 0 }
   }
 
+  // 有配色的形象（目前只有运动装）：9 档全身图，标准档另有一套配色图
   const idx = nearestBodyTier(build)
 
   if (idx === 4 && look.outfit === 'mint') {

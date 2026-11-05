@@ -9,24 +9,35 @@ type State = 'loading' | 'ready' | 'error' | 'no-config'
 
 interface Row {
   name: string
+  /** 这组营养数字是按哪个名字算出来的；改了名字就说明要重算 */
+  baseName: string
   grams: number
   /** 每 100g 的营养，改克数时按它换算 */
   kcal100: number
   p100: number
   c100: number
   f100: number
+  fiber100: number
+  /** 每 100g 含水量（%） */
+  water: number
 }
+
+const round1 = (n: number) => Math.round(n * 10) / 10
+const waterMl = (it: VisionItem) => Math.round((it.grams * (it.water ?? 0)) / 100)
 
 const toRow = (it: VisionItem): Row => {
   const g = it.grams > 0 ? it.grams : 100
   const k = 100 / g
   return {
     name: it.name,
+    baseName: it.name,
     grams: Math.round(g),
     kcal100: Math.round(it.kcal * k),
-    p100: Math.round(it.p * k * 10) / 10,
-    c100: Math.round(it.c * k * 10) / 10,
-    f100: Math.round(it.f * k * 10) / 10,
+    p100: round1(it.p * k),
+    c100: round1(it.c * k),
+    f100: round1(it.f * k),
+    fiber100: round1((it.fiber ?? 0) * k),
+    water: it.water ?? 0,
   }
 }
 
@@ -37,9 +48,11 @@ const toItems = (rows: Row[]): VisionItem[] =>
       name: r.name,
       grams: r.grams,
       kcal: Math.round(r.kcal100 * k),
-      p: Math.round(r.p100 * k * 10) / 10,
-      c: Math.round(r.c100 * k * 10) / 10,
-      f: Math.round(r.f100 * k * 10) / 10,
+      p: round1(r.p100 * k),
+      c: round1(r.c100 * k),
+      f: round1(r.f100 * k),
+      fiber: round1(r.fiber100 * k),
+      water: r.water,
     }
   })
 
@@ -61,6 +74,7 @@ export function PhotoRecognizer({
   const [rows, setRows] = useState<Row[]>([])
   const [error, setError] = useState('')
   const [recalcing, setRecalcing] = useState(false)
+  const [recalcIdx, setRecalcIdx] = useState<number | null>(null)
 
   const run = async () => {
     setState('loading')
@@ -110,6 +124,33 @@ export function PhotoRecognizer({
     }
   }
 
+  /** 改完名字离开输入框就自动重算这一条，营养才跟得上新名字 */
+  const recalcRow = async (i: number) => {
+    const row = rows[i]
+    if (!row) return
+    const name = row.name.trim()
+    if (!name || name === row.baseName) return
+    setRecalcIdx(i)
+    try {
+      const fixed = await recalcItems([{ name, grams: row.grams }])
+      const hit = fixed[0]
+      if (!hit) {
+        setToast('这个新名字没算出来，稍后再试')
+        return
+      }
+      setRows((prev) =>
+        prev.map((r, j) =>
+          j === i ? { ...toRow({ ...hit, grams: row.grams }), name, baseName: name } : r,
+        ),
+      )
+      setToast(`「${name}」的营养已按新名字更新`)
+    } catch (e) {
+      setToast(e instanceof VisionError ? e.message : '重算失败')
+    } finally {
+      setRecalcIdx(null)
+    }
+  }
+
   const addAll = () => {
     for (const it of items) {
       addFoodLog({
@@ -121,6 +162,8 @@ export function PhotoRecognizer({
         p: it.p,
         c: it.c,
         f: it.f,
+        fiber: it.fiber ?? 0,
+        water: it.water,
       })
     }
     setToast(`已记入${MEAL_LABEL[meal]} ${items.length} 项`)
@@ -181,10 +224,16 @@ export function PhotoRecognizer({
                     <input
                       value={rows[i].name}
                       onChange={(e) => patch(i, { name: e.target.value })}
-                      className="min-w-0 flex-1 rounded-lg bg-transparent px-1 py-0.5 text-[13.5px] outline-none focus:bg-surface"
+                      onBlur={() => void recalcRow(i)}
+                      className={
+                        'min-w-0 flex-1 rounded-lg bg-transparent px-1 py-0.5 text-[13.5px] outline-none focus:bg-surface ' +
+                        (rows[i].name.trim() !== rows[i].baseName ? 'text-accent' : '')
+                      }
                       aria-label="菜名"
                     />
-                    <span className="tabular shrink-0 text-[12px] text-accent">{it.kcal} kcal</span>
+                    <span className="tabular shrink-0 text-[12px] text-accent">
+                      {recalcIdx === i ? '重算中…' : `${it.kcal} kcal`}
+                    </span>
                     <button
                       onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
                       className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] text-muted/40 active:bg-surface"
@@ -204,24 +253,41 @@ export function PhotoRecognizer({
                         className="px-2.5 py-1.5"
                       />
                     </div>
-                    <span className="text-[10.5px] text-muted/60">
-                      蛋白 {it.p}g · 碳水 {it.c}g · 脂肪 {it.f}g
-                    </span>
+                    <div className="min-w-0 flex-1 text-[10.5px] leading-4 text-muted/60">
+                      <div className="truncate">
+                        蛋白 {it.p}g · 碳水 {it.c}g · 脂肪 {it.f}g
+                      </div>
+                      <div className="truncate">
+                        纤维 {(it.fiber ?? 0).toFixed(1)}g · 水分{' '}
+                        {it.water === undefined ? '—' : `${waterMl(it)}ml`}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
 
             <p className="px-1 text-[10px] leading-4 text-muted/50">
-              认错了就直接改名字（比如把「鸡肉」改成「牛肉」），再点下面的重算。
+              认错了就直接改名字（比如把「鸡肉」改成「牛肉」），离开输入框会自动按新名字重算营养；改了好几条再点下面的按钮一次算。
             </p>
 
-            <div className="flex items-baseline justify-between rounded-2xl bg-surface2/60 px-4 py-3">
-              <span className="text-[12px] text-muted">合计</span>
-              <span className="tabular text-[22px] font-bold text-accent">
-                {total}
-                <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
-              </span>
+            <div className="rounded-2xl bg-surface2/60 px-4 py-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[12px] text-muted">合计</span>
+                <span className="tabular text-[22px] font-bold text-accent">
+                  {total}
+                  <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
+                </span>
+              </div>
+              <div className="tabular mt-1 flex justify-between text-[10px] text-muted/70">
+                <span>纤维 {round1(items.reduce((a, b) => a + (b.fiber ?? 0), 0))}g</span>
+                <span>
+                  水分{' '}
+                  {items.some((b) => b.water !== undefined)
+                    ? `${items.reduce((a, b) => a + waterMl(b), 0)}ml`
+                    : '—'}
+                </span>
+              </div>
             </div>
 
             <div className="flex gap-2">

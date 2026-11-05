@@ -38,7 +38,8 @@ export function buildContext(data: AppData): string {
     )
   }
   if (g) {
-    const typeText = g.type === 'cut' ? '减脂' : g.type === 'bulk' ? '增肌' : '维持'
+    const typeText =
+      g.type === 'lose' ? '减肥' : g.type === 'cut' ? '减脂' : g.type === 'bulk' ? '增肌' : '维持'
     lines.push(
       `【目标】${typeText} · 目标体重 ${g.targetWeightKg ?? '—'}kg${g.deadline ? ` · 期限 ${g.deadline}` : ''}`,
     )

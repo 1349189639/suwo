@@ -23,7 +23,9 @@ import {
   dailyKcalTarget,
 } from '../domain/nutrition'
 import {
+  GOAL_FOCUS,
   GOAL_LABEL,
+  GOAL_ORDER,
   type ActivityLevel,
   type Gender,
   type GoalType,
@@ -310,16 +312,19 @@ export function ProfileScreen({
             </>
           ) : (
             <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {(['cut', 'bulk', 'maintain'] as GoalType[]).map((g) => (
+              <div className="grid grid-cols-2 gap-2">
+                {GOAL_ORDER.map((g) => (
                   <button
                     key={g}
                     onClick={() => setGoalType(g)}
-                    className={`rounded-xl border py-2.5 text-[13px] ${
-                      goalType === g ? 'border-accent/60 bg-accent/10 text-accent' : 'border-line text-muted'
+                    className={`rounded-xl border px-2 py-2 text-left ${
+                      goalType === g ? 'border-accent/60 bg-accent/10' : 'border-line'
                     }`}
                   >
-                    {GOAL_LABEL[g]}
+                    <div className={`text-[13px] ${goalType === g ? 'text-accent' : 'text-muted'}`}>
+                      {GOAL_LABEL[g]}
+                    </div>
+                    <div className="mt-0.5 text-[9.5px] leading-3 text-muted/50">{GOAL_FOCUS[g]}</div>
                   </button>
                 ))}
               </div>
@@ -357,8 +362,8 @@ export function ProfileScreen({
             </>
           )}
           <p className="pt-1 text-[10.5px] leading-4 text-muted/50">
-            BMR 用 Mifflin-St Jeor 公式；TDEE = BMR × 活动系数；缺口上限 750 kcal、下限保护女 1200 / 男 1500
-            kcal。额外运动会加到当天额度，步数不计入额度以避免重复计算。
+            BMR 用 Mifflin-St Jeor 公式；TDEE = BMR × 活动系数。缺口上限：减肥 800、减脂 600 kcal；
+            下限保护女 1200 / 男 1500 kcal。额外运动会加到当天额度，步数不计入额度以避免重复计算。
           </p>
         </Card>
       </div>

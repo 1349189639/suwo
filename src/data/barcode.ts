@@ -82,6 +82,7 @@ export function toFoodItem(p: BarcodeProduct, category?: FoodCategory): FoodItem
     name: fullName,
     category: cat,
     tags: ['扫码', ...(p.brand ? [p.brand] : [])],
+    barcode: p.code,
     per100: {
       ...p.per100,
       fiber: p.per100.fiber ?? (drink ? 0 : guessFiber(fullName, cat)),

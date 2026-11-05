@@ -1,20 +1,21 @@
 import { useBackToClose } from '../components/useBackToClose'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
-import { CircleAction, ProgressBar } from '../components/ui'
+import { Button, CircleAction, Field, NumberField, ProgressBar, Sheet, inputClass } from '../components/ui'
 import { ChangelogList } from '../components/UpdateNotice'
 import { Coach } from './Coach'
 import { Feedback } from './Feedback'
 import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
-import { stepsKcal } from '../domain/activity'
+import { stepsDistanceKm, stepsKcal } from '../domain/activity'
 import { stageInfo } from '../domain/avatar'
 import { bodyState, currentSpiritInfo, currentStreak, summarizeDay, targetsFor } from '../domain/day'
 import { buildFromBmi } from '../domain/avatar'
 import { calcBmi, fiberTargetG, waterTargetMl } from '../domain/nutrition'
 import { formatCN, todayKey, weekdayCN } from '../domain/date'
 import { defaultLook } from '../domain/look'
-import { MEAL_LABEL } from '../domain/types'
+import { guessFiberByName, guessWater } from '../domain/water'
+import { MEAL_LABEL, type FoodLog } from '../domain/types'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -49,7 +50,11 @@ export function Home({
 }) {
   const data = useStore((s) => s.data)
   const removeFoodLog = useStore((s) => s.removeFoodLog)
+  const updateFoodLog = useStore((s) => s.updateFoodLog)
+  const restoreFoodLog = useStore((s) => s.restoreFoodLog)
   const removeExercise = useStore((s) => s.removeExercise)
+  const restoreExercise = useStore((s) => s.restoreExercise)
+  const offerUndo = useStore((s) => s.offerUndo)
   const setToast = useStore((s) => s.setToast)
   const setSteps = useStore((s) => s.setSteps)
 
@@ -69,8 +74,14 @@ export function Home({
   const [showLog, setShowLog] = useState(false)
   const [showCoach, setShowCoach] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [editing, setEditing] = useState<FoodLog | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editGrams, setEditGrams] = useState(100)
+  const [editCost, setEditCost] = useState(0)
+  const [showAllLogs, setShowAllLogs] = useState(false)
 
   useBackToClose(() => setShowLog(false), showLog)
+  useBackToClose(() => setEditing(null), editing !== null)
 
   // 动作是"临时动画"：播完自动回到静止态。
   // 否则 avatarAction 会被持久保存，贴图形象只在 idle 下使用，用户就会一直看到手绘版。
@@ -142,13 +153,18 @@ export function Home({
     return `今天还能吃 ${day.remaining} kcal，想好吃什么了吗？`
   }, [talk, action, day.remaining, day.meals.length, spirit])
 
-  const entries = [
+  const allEntries = [
     ...day.meals.map((m) => ({
       kind: 'food' as const,
       id: m.id,
       name: m.name,
       meta: MEAL_LABEL[m.meal],
       kcal: m.kcal,
+      p: m.p,
+      c: m.c,
+      f: m.f,
+      fiber: m.fiber ?? guessFiberByName(m.name),
+      waterMl: Math.round(((m.water ?? guessWater(m.name) ?? 0) * m.grams) / 100),
       createdAt: m.createdAt,
     })),
     ...day.exercises.map((e) => ({
@@ -160,11 +176,23 @@ export function Home({
           ? `${e.sets ?? 0} 组 × ${e.reps ?? 0}${e.distanceKm ? '' : ''}`
           : `${e.minutes} 分钟${e.distanceKm ? ` · ${e.distanceKm}km` : ''}`,
       kcal: -e.kcal,
+      p: 0,
+      c: 0,
+      f: 0,
+      fiber: 0,
+      waterMl: 0,
       createdAt: e.createdAt,
     })),
-  ]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, 5)
+  ].sort((a, b) => b.createdAt - a.createdAt)
+
+  const entries = showAllLogs ? allEntries : allEntries.slice(0, 5)
+
+  const openLogEditor = (log: FoodLog) => {
+    setEditing(log)
+    setEditName(log.name)
+    setEditGrams(Math.round(log.grams))
+    setEditCost(log.cost ?? 0)
+  }
 
   const over = day.remaining < 0
   const color = over ? '#ff6b81' : '#3ddc97'
@@ -439,7 +467,7 @@ export function Home({
             <div className="text-[13px]">今日步数</div>
             <div className="text-[11px] text-muted/70">
               {day.steps > 0
-                ? `${day.steps.toLocaleString()} 步 · 约 ${stepsKcal(body?.weight ?? 70, day.steps)} kcal`
+                ? `${day.steps.toLocaleString()} 步 · 约 ${stepsDistanceKm(day.steps, data.profile?.heightCm ?? 170).toFixed(2)} km · 约 ${stepsKcal(body?.weight ?? 70, day.steps)} kcal`
                 : isNativeApp
                   ? '正在从系统计步器读取…'
                   : '还没记录，点这里填写'}
@@ -484,12 +512,30 @@ export function Home({
         {entries.map((e) => (
           <div
             key={`${e.kind}-${e.id}`}
-            className="flex items-center justify-between rounded-2xl bg-surface2/40 px-3.5 py-2.5"
+            className="flex items-center justify-between gap-2 rounded-2xl bg-surface2/40 px-3.5 py-2.5"
           >
-            <div className="min-w-0">
-              <div className="truncate text-[14px]">{e.name}</div>
-              <div className="text-[11px] text-muted/70">{e.meta}</div>
-            </div>
+            <button
+              disabled={e.kind !== 'food'}
+              onClick={() => {
+                const log = day.meals.find((m) => m.id === e.id)
+                if (log) openLogEditor(log)
+              }}
+              className="min-w-0 flex-1 text-left active:opacity-60 disabled:active:opacity-100"
+            >
+              <div className="flex items-baseline gap-1.5">
+                <span className="truncate text-[14px]">{e.name}</span>
+                {e.kind === 'food' && <span className="shrink-0 text-[11px] text-muted/30">›</span>}
+              </div>
+              {e.kind === 'food' ? (
+                <div className="mt-0.5 text-[10px] leading-4 text-muted/60">
+                  <span className="text-muted/45">{e.meta}</span>
+                  {` · 蛋白 ${e.p.toFixed(1)} · 碳水 ${e.c.toFixed(1)} · 脂肪 ${e.f.toFixed(1)}`}
+                  {` · 纤维 ${e.fiber.toFixed(1)}g · 水 ${e.waterMl}ml`}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted/70">{e.meta}</div>
+              )}
+            </button>
             <div className="flex items-center gap-2">
               <span className={`tabular text-[13px] font-semibold ${e.kcal < 0 ? 'text-accent' : 'text-ink'}`}>
                 {e.kcal < 0 ? '+' : ''}
@@ -497,10 +543,17 @@ export function Home({
               </span>
               <button
                 onClick={() => {
-                  if (!confirm('删除这条记录？')) return
-                  if (e.kind === 'food') removeFoodLog(e.id)
-                  else removeExercise(e.id)
-                  setToast('已删除')
+                  if (e.kind === 'food') {
+                    const log = day.meals.find((m) => m.id === e.id)
+                    if (!log) return
+                    removeFoodLog(log.id)
+                    offerUndo(`已删除「${log.name}」`, () => restoreFoodLog(log))
+                  } else {
+                    const ex = day.exercises.find((x) => x.id === e.id)
+                    if (!ex) return
+                    removeExercise(ex.id)
+                    offerUndo(`已删除「${ex.name}」`, () => restoreExercise(ex))
+                  }
                 }}
                 className="grid h-6 w-6 place-items-center rounded-full text-[11px] text-muted/40 active:bg-surface"
                 aria-label="删除"
@@ -511,6 +564,102 @@ export function Home({
           </div>
         ))}
       </div>
+
+      {allEntries.length > 5 && (
+        <button
+          onClick={() => setShowAllLogs((v) => !v)}
+          className="mt-1.5 w-full py-1.5 text-center text-[11px] text-muted/60"
+        >
+          {showAllLogs ? '收起' : `查看全部 ${allEntries.length} 条`}
+        </button>
+      )}
+
+      <Sheet
+        open={editing !== null}
+        title="修改这条记录"
+        subtitle="改完立刻生效，热量和三大宏量按份量自动换算"
+        onClose={() => setEditing(null)}
+      >
+        {editing && (
+          <div className="space-y-3">
+            <Field label="食物名称">
+              <input
+                className={inputClass}
+                value={editName}
+                onChange={(ev) => setEditName(ev.target.value)}
+                placeholder="食物名称"
+              />
+            </Field>
+
+            <Field label="份量" hint={`原来 ${Math.round(editing.grams)}g`}>
+              <NumberField value={editGrams} onChange={setEditGrams} suffix="g" min={1} max={3000} />
+            </Field>
+
+            <div className="rounded-2xl bg-surface2/50 px-4 py-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[12px] text-muted">换算后</span>
+                <span className="tabular text-[20px] font-bold text-accent">
+                  {Math.round((editing.kcal / (editing.grams || 1)) * editGrams)}
+                  <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
+                </span>
+              </div>
+              <div className="tabular mt-1 text-[10.5px] leading-4 text-muted/60">
+                蛋白 {((editing.p / (editing.grams || 1)) * editGrams).toFixed(1)}g · 碳水{' '}
+                {((editing.c / (editing.grams || 1)) * editGrams).toFixed(1)}g · 脂肪{' '}
+                {((editing.f / (editing.grams || 1)) * editGrams).toFixed(1)}g · 纤维{' '}
+                {(((editing.fiber ?? 0) / (editing.grams || 1)) * editGrams).toFixed(1)}g · 水{' '}
+                {Math.round((((editing.water ?? 0) * editGrams) / 100))}ml
+              </div>
+            </div>
+
+            <Field label="这一条花了多少钱（可不填）" hint="可直接算 12+8">
+              <NumberField
+                value={editCost}
+                onChange={setEditCost}
+                suffix="元"
+                min={0}
+                max={9999}
+                emptyWhenZero
+                placeholder="0"
+                allowMath
+              />
+            </Field>
+
+            <Button
+              className="w-full"
+              onClick={() => {
+                const ratio = editGrams / (editing.grams || 1)
+                updateFoodLog(editing.id, {
+                  name: editName.trim() || editing.name,
+                  grams: editGrams,
+                  cost: editCost,
+                  kcal: Math.round(editing.kcal * ratio),
+                  p: Math.round(editing.p * ratio * 10) / 10,
+                  c: Math.round(editing.c * ratio * 10) / 10,
+                  f: Math.round(editing.f * ratio * 10) / 10,
+                  fiber: Math.round((editing.fiber ?? 0) * ratio * 10) / 10,
+                })
+                setEditing(null)
+                setToast('已修改')
+              }}
+            >
+              保存
+            </Button>
+            <Button
+              variant="danger"
+              className="w-full"
+              onClick={() => {
+                const log = editing
+                removeFoodLog(log.id)
+                setEditing(null)
+                offerUndo(`已删除「${log.name}」`, () => restoreFoodLog(log))
+              }}
+            >
+              删除这条
+            </Button>
+          </div>
+        )}
+      </Sheet>
     </div>
   )
 }

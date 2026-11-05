@@ -6,6 +6,8 @@ import { filterFoods, splitPickerResults } from '../data/foods'
 import { estimateFood } from '../data/vision'
 import { useStore } from '../data/store'
 import { addDays, formatCN, todayKey } from '../domain/date'
+import { foodHighlights } from '../domain/highlights'
+import { guessFiberByName, guessWater } from '../domain/water'
 import { summarizeDay, targetsFor } from '../domain/day'
 import {
   FOOD_CATEGORY_LABEL,
@@ -42,6 +44,9 @@ export function FoodDiary({
   const customFoods = data.customFoods
   const addFoodLog = useStore((s) => s.addFoodLog)
   const removeFoodLog = useStore((s) => s.removeFoodLog)
+  const restoreFoodLog = useStore((s) => s.restoreFoodLog)
+  const copyMeal = useStore((s) => s.copyMeal)
+  const offerUndo = useStore((s) => s.offerUndo)
   const updateFoodLog = useStore((s) => s.updateFoodLog)
   const addCustomFood = useStore((s) => s.addCustomFood)
   const setWater = useStore((s) => s.setWater)
@@ -81,6 +86,13 @@ export function FoodDiary({
     }
   }, [open])
 
+  // 弹层的滚动容器是共用的：从日记（尤其是晚餐/加餐）点进来时它停在原来的位置，
+  // 新界面就只露出中段。每次换视图/换层级都归位到顶部，界面才从第一行开始。
+  useEffect(() => {
+    const el = document.querySelector('[data-sheet-scroll]')
+    if (el instanceof HTMLElement) el.scrollTop = 0
+  }, [view, picked, scanning, photo])
+
   const day = summarizeDay(data, viewDate)
   const targets = targetsFor(data)
 
@@ -95,9 +107,9 @@ export function FoodDiary({
         p: Math.round(sum((x) => x.p) * 10) / 10,
         c: Math.round(sum((x) => x.c) * 10) / 10,
         f: Math.round(sum((x) => x.f) * 10) / 10,
-        fiber: Math.round(sum((x) => x.fiber ?? 0) * 10) / 10,
+        fiber: Math.round(sum((x) => x.fiber ?? guessFiberByName(x.name)) * 10) / 10,
         cost: day.mealCosts[m],
-        waterMl: Math.round(sum((x) => (x.water ? (x.grams * x.water) / 100 : 0))),
+        waterMl: Math.round(sum((x) => ((x.water ?? guessWater(x.name) ?? 0) * x.grams) / 100)),
       }
     })
   }, [day])
@@ -122,6 +134,15 @@ export function FoodDiary({
     setQuery('')
     setCategory('all')
     setView('picker')
+  }
+
+  /** 往前 7 天里，最近一次记过这个餐次的日期（用于「复制上一餐」） */
+  const prevMealDate = (m: Meal): string | null => {
+    for (let i = 1; i <= 7; i += 1) {
+      const d = addDays(viewDate, -i)
+      if (data.foodLogs.some((l) => l.date === d && l.meal === m)) return d
+    }
+    return null
   }
 
   const logPicked = () => {
@@ -184,6 +205,22 @@ export function FoodDiary({
           每 100g · {Math.round(picked.per100.kcal)} kcal · 蛋白 {picked.per100.p}g · 碳水{' '}
           {picked.per100.c}g · 脂肪 {picked.per100.f}g
         </div>
+        {(() => {
+          const marks = foodHighlights(picked.name, picked.tags)
+          if (marks.length === 0) return null
+          return (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {marks.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] text-accent/90"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )
+        })()}
 
         <div className="mt-5 space-y-3">
           <Field label="份量" hint={`加入${MEAL_LABEL[meal]}`}>
@@ -238,8 +275,18 @@ export function FoodDiary({
         </button>
         <BarcodeScanner
           onPick={(food) => {
-            addCustomFood(food)
-            setPicked(food)
+            // 扫码结果自动进食物库；同条码/同名只存一份，重复扫直接复用已有的那条
+            const existed = customFoods.find(
+              (f) => (food.barcode && f.barcode === food.barcode) || f.name === food.name,
+            )
+            if (existed) {
+              setPicked(existed)
+              setToast('这个商品已经在食物库里')
+            } else {
+              addCustomFood(food)
+              setPicked(food)
+              setToast(`已存入食物库 · ${food.name}`)
+            }
             setGrams(100)
             setScanning(false)
           }}
@@ -431,6 +478,8 @@ export function FoodDiary({
                                 p: Math.round((it.p / g) * 1000) / 10,
                                 c: Math.round((it.c / g) * 1000) / 10,
                                 f: Math.round((it.f / g) * 1000) / 10,
+                                fiber: Math.round(((it.fiber ?? 0) / g) * 1000) / 10,
+                                water: it.water,
                               },
                               defaultGrams: Math.round(g),
                             })
@@ -444,6 +493,8 @@ export function FoodDiary({
                             p: it.p,
                             c: it.c,
                             f: it.f,
+                            fiber: it.fiber ?? 0,
+                            water: it.water,
                           })
                           setToast('已记入，并存进食物库')
                           setView('diary')
@@ -572,10 +623,10 @@ export function FoodDiary({
 
             {openMeal === m.meal && (
               <div className="mt-2 space-y-2 rounded-xl bg-surface/70 p-2.5">
-                <div className="text-[11px] text-muted">这一餐一共花了（留空就只算单项）</div>
+                <div className="text-[11px] text-muted">这一餐一共花了（留空就只算单项·可直接算 12+8）</div>
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} />
+                    <NumberField value={costDraft} onChange={setCostDraft} suffix="元" min={0} max={9999} emptyWhenZero placeholder="0" allowMath />
                   </div>
                   <Button
                     variant="soft"
@@ -596,12 +647,33 @@ export function FoodDiary({
             )}
 
             {m.items.length === 0 ? (
-              <button
-                onClick={() => openPicker(m.meal)}
-                className="mt-2 w-full rounded-xl border border-dashed border-line/70 py-3 text-[11px] text-muted/50"
-              >
-                还没有记录，点这里添加
-              </button>
+              <div className="mt-2 space-y-1.5">
+                <button
+                  onClick={() => openPicker(m.meal)}
+                  className="w-full rounded-xl border border-dashed border-line/70 py-3 text-[11px] text-muted/50"
+                >
+                  还没有记录，点这里添加
+                </button>
+                {(() => {
+                  const prev = prevMealDate(m.meal)
+                  if (!prev) return null
+                  return (
+                    <button
+                      onClick={() => {
+                        const n = copyMeal(prev, viewDate, m.meal)
+                        setToast(
+                          n > 0
+                            ? `已复制 ${formatCN(prev)} 的${MEAL_LABEL[m.meal]} ${n} 项`
+                            : '那天没有可复制的记录',
+                        )
+                      }}
+                      className="w-full text-center text-[10.5px] text-accent/80 active:opacity-60"
+                    >
+                      复制 {formatCN(prev)} 的{MEAL_LABEL[m.meal]}
+                    </button>
+                  )
+                })()}
+              </div>
             ) : (
               <div className="mt-2 space-y-1">
                 {m.items.map((it) => (
@@ -630,7 +702,10 @@ export function FoodDiary({
                     <div className="flex items-center gap-2">
                       <span className="tabular text-[12px] text-muted">{it.kcal}</span>
                       <button
-                        onClick={() => removeFoodLog(it.id)}
+                        onClick={() => {
+                          removeFoodLog(it.id)
+                          offerUndo(`已删除「${it.name}」`, () => restoreFoodLog(it))
+                        }}
                         className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-muted/30 active:bg-surface2"
                         aria-label="删除"
                       >
@@ -661,7 +736,7 @@ export function FoodDiary({
                       </div>
                       <div>
                         <div className="mb-1 text-[10px] text-muted/60">这一条花了多少钱（可不填）</div>
-                        <NumberField value={editCost} onChange={setEditCost} suffix="元" min={0} max={9999} />
+                        <NumberField value={editCost} onChange={setEditCost} suffix="元" min={0} max={9999} emptyWhenZero placeholder="0" allowMath />
                       </div>
                       <div className="flex gap-2">
                         <Button variant="soft" className="flex-1" onClick={() => setEditing(null)}>

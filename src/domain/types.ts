@@ -2,7 +2,12 @@ import type { Look } from './look'
 
 export type Gender = 'male' | 'female'
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active'
-export type GoalType = 'cut' | 'bulk' | 'maintain'
+/**
+ * 减重类目标分两种，指标口径不一样：
+ * - lose（减肥）：以体重下降为主，缺口可以更直接，蛋白适中；
+ * - cut（减脂）：以降体脂、保住肌肉为主，缺口温和，蛋白更高。
+ */
+export type GoalType = 'lose' | 'cut' | 'bulk' | 'maintain'
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack'
 export type ExerciseKind = 'strength' | 'cardio'
 
@@ -69,6 +74,8 @@ export interface FoodItem {
   /** 计件单位，如 个 / 碗 / 杯 */
   unit?: string
   unitGrams?: number
+  /** 扫码得到的商品条码，用来去重 */
+  barcode?: string
   custom?: boolean
 }
 
@@ -145,16 +152,28 @@ export const MEAL_HINT: Record<Meal, string> = {
 
 export const MEAL_ORDER: Meal[] = ['breakfast', 'lunch', 'dinner', 'snack']
 
+export const GOAL_ORDER: GoalType[] = ['lose', 'cut', 'bulk', 'maintain']
+
 export const GOAL_LABEL: Record<GoalType, string> = {
+  lose: '减肥',
   cut: '减脂',
   bulk: '增重',
   maintain: '保持',
 }
 
 export const GOAL_DESC: Record<GoalType, string> = {
-  cut: '热量赤字，减掉脂肪与体重',
+  lose: '以体重下降为主，缺口更直接',
+  cut: '降体脂、保住肌肉，口径温和',
   bulk: '热量盈余，增加肌肉与体重',
   maintain: '维持现状，稳定在健康区间',
+}
+
+/** 每种目标该盯什么指标——减肥和减脂最容易混，这里写清楚 */
+export const GOAL_FOCUS: Record<GoalType, string> = {
+  lose: '看体重：每周降 0.5–1% 比较稳',
+  cut: '看体脂和围度，体重降得慢是正常的',
+  bulk: '看训练量：每周 +0.25–0.5 kg',
+  maintain: '看体重是否稳在 ±1 kg 区间',
 }
 
 export const FOOD_CATEGORY_LABEL: Record<FoodCategory, string> = {

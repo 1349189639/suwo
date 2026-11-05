@@ -101,6 +101,20 @@ export interface CalorieTarget {
   planned: number | null
   /** 缺口很小（<120 kcal），说明期限宽松 */
   gentle: boolean
+  /** 这一档目标允许的最大缺口/盈余 */
+  cap: number
+}
+
+/**
+ * 每档目标的热量差口径。
+ * 减肥（lose）盯体重，缺口可以更直接；减脂（cut）要保肌肉，缺口必须温和。
+ */
+export const GOAL_DELTA: Record<GoalType, { fallback: number; cap: number }> = {
+  // 减肥默认 450：再大一点，70kg 久坐男性就会撞上 1500 的安全下限，反而不合理
+  lose: { fallback: 450, cap: 800 },
+  cut: { fallback: 350, cap: 600 },
+  bulk: { fallback: 250, cap: 500 },
+  maintain: { fallback: 0, cap: 0 },
 }
 
 export function dailyKcalTarget(
@@ -111,19 +125,20 @@ export function dailyKcalTarget(
 ): CalorieTarget {
   const base = calcTdee(profile, weightKg, now)
   const planned = plannedDelta(weightKg, goal.targetWeightKg, goal.deadline, dateKey(now))
+  const plan = GOAL_DELTA[goal.type]
 
   let delta = 0
-  if (goal.type === 'cut') {
+  if (goal.type === 'lose' || goal.type === 'cut') {
     // 设了期限就按期限反推，只封顶不设下限——否则长期限会被强行拉到 250，
     // 导致「24 周」和「预计 1 个月达成」自相矛盾。
-    delta = planned !== null && planned > 0 ? Math.round(Math.min(planned, 750)) : 400
+    delta = planned !== null && planned > 0 ? Math.round(Math.min(planned, plan.cap)) : plan.fallback
   } else if (goal.type === 'bulk') {
-    delta = planned !== null && planned < 0 ? -Math.round(Math.min(-planned, 500)) : -250
+    delta = planned !== null && planned < 0 ? -Math.round(Math.min(-planned, plan.cap)) : -plan.fallback
   }
 
   const rawKcal = base - delta
   const floor = KCAL_FLOOR[profile.gender]
-  const floored = goal.type === 'cut' && rawKcal < floor
+  const floored = delta > 0 && rawKcal < floor
   const kcal = Math.round(floored ? floor : rawKcal)
 
   return {
@@ -133,14 +148,32 @@ export function dailyKcalTarget(
     floored,
     planned: planned === null ? null : Math.round(planned),
     gentle: goal.type !== 'maintain' && Math.abs(delta) < 120,
+    cap: plan.cap,
   }
 }
 
+/**
+ * 蛋白基数：减重类按目标体重算。
+ * 用当前体重会给超重的人排出离谱的蛋白量（100kg 的人 1.8g/kg = 180g），也挤掉了碳水。
+ */
+function proteinBasis(type: GoalType, weightKg: number, targetWeightKg?: number): number {
+  if (type === 'bulk' || targetWeightKg === undefined || targetWeightKg <= 0) return weightKg
+  return Math.min(weightKg, targetWeightKg)
+}
+
 /** 三大宏量目标：蛋白按体重，脂肪按热量占比，碳水补齐 */
-export function macroTarget(type: GoalType, weightKg: number, kcal: number): MacroSet {
-  const perKg = type === 'cut' ? 1.8 : type === 'bulk' ? 2.0 : 1.4
-  const protein = Math.round(perKg * weightKg)
-  const fat = Math.round(Math.max(0.8 * weightKg, (kcal * 0.25) / 9))
+export function macroTarget(
+  type: GoalType,
+  weightKg: number,
+  kcal: number,
+  targetWeightKg?: number,
+): MacroSet {
+  const basis = proteinBasis(type, weightKg, targetWeightKg)
+  const perKg = type === 'cut' ? 1.8 : type === 'lose' ? 1.5 : type === 'bulk' ? 2.0 : 1.4
+  const fatPerKg = type === 'lose' ? 0.7 : 0.8
+  const fatShare = type === 'lose' ? 0.22 : 0.25
+  const protein = Math.round(perKg * basis)
+  const fat = Math.round(Math.max(fatPerKg * basis, (kcal * fatShare) / 9))
   const carb = Math.round(Math.max(0, (kcal - protein * 4 - fat * 9) / 4))
   return { kcal, p: protein, c: carb, f: fat }
 }

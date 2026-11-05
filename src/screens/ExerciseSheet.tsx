@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Field, NumberField, Pill, Segmented, Stepper } from '../components/ui'
 import { useStore } from '../data/store'
 import {
@@ -19,13 +19,14 @@ import {
   paceLabel,
   runKcalByDistance,
   stepsKcal,
+  stepsDistanceKm,
   strengthKcal,
   strengthMinutes,
   trainingVolume,
   type CardioGroup,
 } from '../domain/activity'
 import { latestWeight } from '../domain/day'
-import { todayKey } from '../domain/date'
+import { daysBetween, todayKey } from '../domain/date'
 import type { Intensity } from '../domain/types'
 
 type Tab = 'strength' | 'cardio' | 'steps'
@@ -61,6 +62,14 @@ export function ExerciseSheet({ open, onClose }: { open: boolean; onClose: () =>
   const groupActivities = activitiesByGroup(group)
   const activity = CARDIO_ACTIVITIES.find((a) => a.id === activityId) ?? groupActivities[0]
   const variant = activity.variants[Math.min(variantIdx, activity.variants.length - 1)]
+
+  // 同一个动作上一次的成绩（渐进超负荷的参照）
+  const lastSame = useMemo(() => {
+    const list = data.exercises
+      .filter((e) => e.kind === 'strength' && e.name === moveName)
+      .sort((a, b) => b.createdAt - a.createdAt)
+    return list[0] ?? null
+  }, [data.exercises, moveName])
 
   useEffect(() => {
     if (!open) return
@@ -162,6 +171,19 @@ export function ExerciseSheet({ open, onClose }: { open: boolean; onClose: () =>
               ))}
             </div>
             {move.note && <p className="mt-1.5 px-1 text-[10.5px] text-muted/50">{move.note}</p>}
+            {lastSame && (
+              <p className="mt-1.5 px-1 text-[10.5px] text-accent/70">
+                上次 {lastSame.sets}×{lastSame.reps}
+                {lastSame.weightKg
+                  ? ` @ ${lastSame.weightKg}kg`
+                  : move.load === 'bodyweight'
+                    ? '（自重）'
+                    : ''}
+                {lastSame.date === todayKey()
+                  ? ' · 今天'
+                  : ` · ${daysBetween(lastSame.date, todayKey())} 天前`}
+              </p>
+            )}
           </div>
 
           <div>
@@ -391,12 +413,21 @@ export function ExerciseSheet({ open, onClose }: { open: boolean; onClose: () =>
               </button>
             ))}
           </div>
-          <Card className="flex items-center justify-between">
-            <span className="text-[12px] text-muted">折算消耗</span>
-            <span className="tabular text-[20px] font-bold text-accent">
-              {stepsKcal(bodyWeight, stepsInput)}
-              <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
-            </span>
+          <Card className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-muted">折算距离</span>
+              <span className="tabular text-[20px] font-bold">
+                {stepsDistanceKm(stepsInput, data.profile?.heightCm ?? 170).toFixed(2)}
+                <span className="ml-1 text-[11px] font-normal text-muted">km</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-muted">折算消耗</span>
+              <span className="tabular text-[20px] font-bold text-accent">
+                {stepsKcal(bodyWeight, stepsInput)}
+                <span className="ml-1 text-[11px] font-normal text-muted">kcal</span>
+              </span>
+            </div>
           </Card>
           <Button
             className="w-full"

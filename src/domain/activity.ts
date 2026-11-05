@@ -427,6 +427,15 @@ export function stepsKcal(weightKg: number, steps: number): number {
   return Math.round(weightKg * steps * 0.0005)
 }
 
+/**
+ * 步数折算距离：步长 ≈ 0.415 × 身高（普通步行）。
+ * 例：170cm 走 10000 步 ≈ 7.06 km
+ */
+export function stepsDistanceKm(steps: number, heightCm: number): number {
+  const strideM = (heightCm * 0.415) / 100
+  return Math.round((steps * strideM) / 10) / 100
+}
+
 /** 配速：分钟/公里 → "5'42\"" */
 export function paceLabel(minutes: number, km: number): string | null {
   if (km <= 0 || minutes <= 0) return null

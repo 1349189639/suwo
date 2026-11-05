@@ -12,6 +12,8 @@ import {
   OUTFIT_STYLES,
   SKIN_TONES,
   defaultLook,
+  styleDef,
+  styleSupportsColor,
   type HairColor,
   type HairStyle,
   type Look,
@@ -80,18 +82,17 @@ export function LookEditor() {
   const diff = Math.round((previewKg - realKg) * 10) / 10
   const style = look.outfitStyle ?? 'sport'
   const tier = nearestBodyTier(build)
-  const appearanceDisabled =
-    style !== 'classic' && (style !== 'sport' || look.outfit !== 'mint' || tier !== 4)
-  const appearanceHint =
-    style === 'suit' || style === 'casual'
-      ? '这套固定穿搭只展示整体轮廓，发型、发色、肤色暂不参与变化'
-      : style !== 'sport'
-        ? undefined
-        : look.outfit !== 'mint'
-          ? '这个颜色目前只有标准档全身图，发型、发色、肤色暂不生效'
-          : tier !== 4
-            ? '当前档位只有全身站姿图，发型、发色、肤色到标准档再试'
-            : undefined
+  const def = styleDef(style)
+  // 发型/发色/肤色只有「有面部素材」的形象吃：手绘版全档位可用，运动装只在标准档+薄荷配色有素材
+  const appearanceBlockedByAsset = style === 'sport' && (look.outfit !== 'mint' || tier !== 4)
+  const appearanceDisabled = !def.appearance || appearanceBlockedByAsset
+  const appearanceHint = !def.appearance
+    ? '这套固定穿搭只展示整体轮廓，发型、发色、肤色暂不参与变化'
+    : !appearanceBlockedByAsset
+      ? undefined
+      : look.outfit !== 'mint'
+        ? '这个颜色目前只有标准档全身图，发型、发色、肤色暂不生效'
+        : '当前档位只有全身站姿图，发型、发色、肤色到标准档再试'
 
   return (
     <div className="anim-rise pb-2">
@@ -215,9 +216,13 @@ export function LookEditor() {
 
         <Section
           title="服装颜色"
-          hint={(look.outfitStyle === 'suit' || look.outfitStyle === 'casual') ? '这两套是固定配色' : undefined}
+          hint={styleSupportsColor(style) ? undefined : '这套是固定配色'}
         >
-          <div className={'flex gap-5 px-1 ' + ((look.outfitStyle === 'suit' || look.outfitStyle === 'casual') ? 'pointer-events-none opacity-30' : '')}>
+          <div
+            className={
+              'flex gap-5 px-1 ' + (styleSupportsColor(style) ? '' : 'pointer-events-none opacity-30')
+            }
+          >
             {(Object.keys(OUTFITS) as OutfitColor[]).map((k) => (
               <Swatch
                 key={k}

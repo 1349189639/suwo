@@ -1,6 +1,17 @@
 import { useState } from 'react'
+import { Avatar } from '../components/Avatar'
 import { Button, Card, Field, NumberInput, Pill } from '../components/ui'
 import { addDays, todayKey } from '../domain/date'
+import { buildFromBmi, muscleFromBuild } from '../domain/avatar'
+import {
+  defaultLook,
+  OUTFITS,
+  OUTFIT_STYLES,
+  styleDef,
+  type Look,
+  type OutfitColor,
+  type OutfitStyle,
+} from '../domain/look'
 import {
   ACTIVITY_FACTOR,
   ACTIVITY_HINT,
@@ -14,7 +25,7 @@ import {
   macroTarget,
 } from '../domain/nutrition'
 import type { ActivityLevel, Gender, Goal, GoalType, Profile } from '../domain/types'
-import { GOAL_DESC, GOAL_LABEL } from '../domain/types'
+import { GOAL_DESC, GOAL_FOCUS, GOAL_LABEL, GOAL_ORDER } from '../domain/types'
 import { useStore } from '../data/store'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -22,6 +33,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 export function Onboarding() {
   const saveProfile = useStore((s) => s.saveProfile)
   const saveGoal = useStore((s) => s.saveGoal)
+  const setLook = useStore((s) => s.setLook)
 
   const [step, setStep] = useState(0)
   const [gender, setGender] = useState<Gender>('male')
@@ -32,6 +44,8 @@ export function Onboarding() {
   const [goalType, setGoalType] = useState<GoalType>('cut')
   const [targetWeight, setTargetWeight] = useState(65)
   const [weeks, setWeeks] = useState(0)
+  const [style, setStyle] = useState<OutfitStyle>('sport')
+  const [outfit, setOutfit] = useState<OutfitColor>('mint')
 
   const profile: Profile = {
     gender,
@@ -52,20 +66,32 @@ export function Onboarding() {
     startedAt: new Date().toISOString(),
   }
   const target = dailyKcalTarget(profile, weight, goal)
-  const macros = macroTarget(goalType, weight, target.kcal)
+  const macros = macroTarget(goalType, weight, target.kcal, targetWeight)
   const finish = estimateFinishDate(weight, targetWeight, target.delta)
+
+  // 形象预览：用当前体重对应的体型，选什么风格就长什么样
+  const previewLook: Look = {
+    ...defaultLook(gender),
+    outfitStyle: style,
+    outfit: styleDef(style).colors ? outfit : defaultLook(gender).outfit,
+  }
+  const build = buildFromBmi(bmi)
+  const muscle = muscleFromBuild(build)
 
   const canNext =
     step === 0
       ? age >= 14 && age <= 85 && height >= 120 && height <= 230 && weight >= 30 && weight <= 250
       : step === 1
         ? true
-        : goalType === 'maintain' ||
-          (targetWeight >= 35 && targetWeight <= 250 && Math.abs(targetWeight - weight) >= 0.1)
+        : step === 2
+          ? true
+          : goalType === 'maintain' ||
+            (targetWeight >= 35 && targetWeight <= 250 && Math.abs(targetWeight - weight) >= 0.1)
 
   const finishSetup = () => {
     saveProfile(profile, weight)
     saveGoal(goal)
+    setLook(previewLook)
   }
 
   return (
@@ -75,17 +101,19 @@ export function Onboarding() {
         <h1 className="mt-2 text-[26px] font-bold leading-tight">
           {step === 0 && '先认识一下你'}
           {step === 1 && '你平时动得多吗'}
-          {step === 2 && '这次想练成什么样'}
+          {step === 2 && '挑一个你的形象'}
+          {step === 3 && '这次想练成什么样'}
         </h1>
         <p className="mt-1.5 text-[13px] leading-5 text-muted">
           {step === 0 && '这些数据只用来计算你的热量账本，登录后会同步到云端，换手机登录同一账号就能恢复。'}
           {step === 1 && '活动水平决定你的每日总消耗（TDEE），之后可以随时修改。'}
-          {step === 2 && '目标决定每天吃多少。设个期限，系统会反推每天的热量缺口。'}
+          {step === 2 && '首页的小人就是它。选了手绘版会呼吸会眨眼，以后还会加新形象，随时能在「我的 → 我的形象」里换。'}
+          {step === 3 && '减肥和减脂的口径不一样：减肥盯体重，缺口更直接；减脂盯体脂，缺口更温和、蛋白更高。'}
         </p>
       </div>
 
       <div className="mb-6 flex gap-1.5">
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
             className="h-1 flex-1 rounded-full transition-colors"
@@ -170,17 +198,85 @@ export function Onboarding() {
 
         {step === 2 && (
           <div className="anim-rise space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {(['cut', 'bulk', 'maintain'] as GoalType[]).map((g) => (
+            <div className="grid grid-cols-2 gap-2">
+              {OUTFIT_STYLES.filter((s) => s.selectable).map((s) => {
+                const active = style === s.id
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setStyle(s.id)}
+                    className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 transition ${
+                      active ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface2/40'
+                    }`}
+                  >
+                    <div
+                      className="grid h-[92px] w-[74px] place-items-end justify-center overflow-hidden rounded-xl"
+                      style={{
+                        background: 'radial-gradient(100% 80% at 50% 10%, #2a4753 0%, #101a22 100%)',
+                      }}
+                    >
+                      <Avatar
+                        build={build}
+                        muscle={muscle}
+                        gender={gender}
+                        spirit={82}
+                        action="idle"
+                        look={{ ...previewLook, outfitStyle: s.id }}
+                        size={78}
+                      />
+                    </div>
+                    <div className={`text-[13px] font-medium ${active ? 'text-accent' : ''}`}>{s.label}</div>
+                    <div className="text-center text-[10px] leading-3 text-muted/60">{s.hint}</div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {styleDef(style).colors && (
+              <div>
+                <div className="mb-1.5 text-[13px] text-muted">配色</div>
+                <div className="flex gap-3 px-1">
+                  {(styleDef(style).colors ?? []).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setOutfit(c)}
+                      className="flex flex-col items-center gap-1"
+                    >
+                      <span
+                        className={`h-9 w-9 rounded-full border-2 ${
+                          outfit === c ? 'border-accent ring-2 ring-accent/30' : 'border-white/15'
+                        }`}
+                        style={{ background: OUTFITS[c].color }}
+                      />
+                      <span className={`text-[10px] ${outfit === c ? 'text-accent' : 'text-muted/70'}`}>
+                        {OUTFITS[c].label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="px-1 text-[10.5px] leading-4 text-muted/50">
+              体型跟体重走，选哪套都不影响计算。以后想换，去「我的 → 我的形象」。
+            </p>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="anim-rise space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {GOAL_ORDER.map((g) => (
                 <button
                   key={g}
                   onClick={() => setGoalType(g)}
-                  className={`rounded-2xl border p-3 text-center transition ${
+                  className={`rounded-2xl border p-3 text-left transition ${
                     goalType === g ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface'
                   }`}
                 >
                   <div className="text-[15px] font-semibold">{GOAL_LABEL[g]}</div>
                   <div className="mt-1 text-[10px] leading-4 text-muted">{GOAL_DESC[g]}</div>
+                  <div className="mt-1 text-[10px] leading-4 text-accent/80">{GOAL_FOCUS[g]}</div>
                 </button>
               ))}
             </div>
@@ -259,11 +355,11 @@ export function Onboarding() {
           className="flex-1"
           disabled={!canNext}
           onClick={() => {
-            if (step < 2) setStep(step + 1)
+            if (step < 3) setStep(step + 1)
             else finishSetup()
           }}
         >
-          {step < 2 ? '继续' : !canNext ? '目标体重不能和当前体重一样' : '开始记录'}
+          {step < 3 ? '继续' : !canNext ? '目标体重不能和当前体重一样' : '开始记录'}
         </Button>
       </div>
     </div>

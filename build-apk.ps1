@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Continue'
 $app = $PSScriptRoot
 $root = Split-Path $app -Parent
-$build = 'C:\suwo-build'
+$build = 'D:\suwo-build'
 $sdk = Join-Path $build 'sdk'
 $env:SUWO_BUILD = $build
 $ProgressPreference = 'SilentlyContinue'

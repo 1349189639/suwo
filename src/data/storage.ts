@@ -52,6 +52,19 @@ function str(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback
 }
 
+/** 同一件商品只留一份：有条码按条码，没有条码按名字 */
+export function dedupeCustomFoods(list: FoodItem[]): FoodItem[] {
+  const seen = new Set<string>()
+  const out: FoodItem[] = []
+  for (const f of list) {
+    const key = f.barcode ? `b:${f.barcode}` : `n:${f.name.trim()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(f)
+  }
+  return out
+}
+
 /** 宽容地把任意输入整理成合法数据结构，损坏字段丢弃而不是整份崩溃 */
 export function normalize(input: unknown): AppData {
   const src = obj(input)
@@ -77,7 +90,9 @@ export function normalize(input: unknown): AppData {
   const goal: Goal | null = profile
     ? {
         type:
-          goalRaw.type === 'bulk' || goalRaw.type === 'maintain' ? goalRaw.type : 'cut',
+          goalRaw.type === 'lose' || goalRaw.type === 'bulk' || goalRaw.type === 'maintain'
+            ? goalRaw.type
+            : 'cut',
         startWeightKg: num(goalRaw.startWeightKg, 70),
         targetWeightKg:
           typeof goalRaw.targetWeightKg === 'number' ? goalRaw.targetWeightKg : undefined,
@@ -145,7 +160,7 @@ export function normalize(input: unknown): AppData {
         }))
     : []
 
-  const customFoods: FoodItem[] = Array.isArray(src.customFoods)
+  const parsedCustomFoods: FoodItem[] = Array.isArray(src.customFoods)
     ? (src.customFoods as unknown[])
         .map((f) => obj(f))
         .filter((f) => typeof f.name === 'string')
@@ -167,9 +182,13 @@ export function normalize(input: unknown): AppData {
           defaultGrams: num(f.defaultGrams, 100),
           unit: typeof f.unit === 'string' ? f.unit : undefined,
           unitGrams: typeof f.unitGrams === 'number' ? f.unitGrams : undefined,
+          barcode: typeof f.barcode === 'string' ? f.barcode : undefined,
           custom: true,
         }))
     : []
+
+  // 扫码时代重复入库过同一件商品：按条码（没有条码就按名字）去重，保留先入库的那条
+  const customFoods = dedupeCustomFoods(parsedCustomFoods)
 
   const steps: Record<string, number> = {}
   const stepsRaw = obj(src.steps)

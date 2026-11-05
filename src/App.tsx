@@ -38,6 +38,8 @@ export default function App() {
   const data = useStore((s) => s.data)
   const toast = useStore((s) => s.toast)
   const setToast = useStore((s) => s.setToast)
+  const undo = useStore((s) => s.undo)
+  const clearUndo = useStore((s) => s.clearUndo)
 
   const cloudUser = useStore((s) => s.cloudUser)
   const bootstrapping = useStore((s) => s.bootstrapping)
@@ -69,6 +71,13 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 1900)
     return () => clearTimeout(t)
   }, [toast, setToast])
+
+  // 撤销条 5 秒后自动收掉；连续删除时计时重新开始
+  useEffect(() => {
+    if (!undo) return
+    const t = setTimeout(() => clearUndo(), 5000)
+    return () => clearTimeout(t)
+  }, [undo, clearUndo])
 
   // 应用内更新：登录后每 6 小时查一次（必须在所有 early return 之前）
   useEffect(() => {
@@ -185,6 +194,23 @@ export default function App() {
         <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex justify-center">
           <div className="anim-rise rounded-full bg-ink/90 px-4 py-2 text-[13px] font-medium text-canvas shadow-lg">
             {toast}
+          </div>
+        </div>
+      )}
+
+      {undo && (
+        <div className="fixed inset-x-0 bottom-28 z-[61] flex justify-center px-5">
+          <div className="anim-rise flex items-center gap-3 rounded-full bg-ink/95 py-1.5 pl-4 pr-1.5 shadow-lg">
+            <span className="text-[12.5px] text-canvas">{undo.text}</span>
+            <button
+              onClick={() => {
+                undo.run()
+                clearUndo()
+              }}
+              className="rounded-full bg-accent px-3 py-1 text-[12px] font-semibold text-canvas active:scale-95"
+            >
+              撤销
+            </button>
           </div>
         </div>
       )}

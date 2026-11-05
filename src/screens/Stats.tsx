@@ -2,7 +2,7 @@ import { Sparkline, ScoreRing, WeekBars } from '../components/charts'
 import { Card, SectionTitle } from '../components/ui'
 import { useStore } from '../data/store'
 import { spiritLabel } from '../domain/adherence'
-import { currentSpirit, currentStreak, latestWeight, summarizeWeek, targetsFor } from '../domain/day'
+import { currentSpirit, currentStreak, latestWeight, monthCost, summarizeWeek, targetsFor } from '../domain/day'
 import { formatCN, lastNDates, todayKey, weekdayShort } from '../domain/date'
 import { MEAL_LABEL, MEAL_ORDER } from '../domain/types'
 import { KCAL_PER_KG, calcTdee } from '../domain/nutrition'
@@ -72,11 +72,14 @@ export function Stats() {
       </Card>
 
       {(() => {
-        const monthPrefix = todayKey().slice(0, 7)
-        const costOf = (logs: typeof data.foodLogs) => logs.reduce((a, l) => a + (l.cost ?? 0), 0)
-        const weekLogs = week.days.flatMap((d) => d.meals)
-        const monthLogs = data.foodLogs.filter((l) => l.date.startsWith(monthPrefix))
-        const byMeal = MEAL_ORDER.map((m) => ({ m, v: costOf(weekLogs.filter((l) => l.meal === m)) }))
+        // 花销 = 单条记录的 cost + 整餐记账（data.mealCosts）。
+        // 统一走 summarizeDay 的 $cost，口径才和饮食日记里的「当日花费」一致。
+        const weekCost = week.days.reduce((a, d) => a + d.cost, 0)
+        const monthTotal = monthCost(data, todayKey().slice(0, 7))
+        const byMeal = MEAL_ORDER.map((m) => ({
+          m,
+          v: week.days.reduce((a, d) => a + d.mealCosts[m], 0),
+        }))
         return (
           <div className="mt-4">
             <SectionTitle right={<span className="text-[11px] text-muted/60">记账</span>}>花销</SectionTitle>
@@ -84,11 +87,11 @@ export function Stats() {
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-[11px] text-muted">本周</div>
-                  <div className="tabular text-[24px] font-bold text-accent">¥{costOf(weekLogs).toFixed(0)}</div>
+                  <div className="tabular text-[24px] font-bold text-accent">¥{weekCost.toFixed(0)}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[11px] text-muted">本月</div>
-                  <div className="tabular text-[18px] font-semibold">¥{costOf(monthLogs).toFixed(0)}</div>
+                  <div className="tabular text-[18px] font-semibold">¥{monthTotal.toFixed(0)}</div>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-4 gap-1.5">
@@ -100,7 +103,7 @@ export function Stats() {
                 ))}
               </div>
               <p className="mt-2 text-[10px] leading-4 text-muted/50">
-                在饮食日记里点任意一条记录，可以填这一餐花了多少钱
+                每餐右上角的「记账」填整餐花费，点单条记录可以填这一项的价；两边都会算进来。
               </p>
             </Card>
           </div>
@@ -228,7 +231,15 @@ function buildInsights(input: {
       text: `蛋白质日均 ${avgProtein}g，低于目标 ${targetProtein}g。补一个鸡蛋 + 一份鸡胸（约 40g 蛋白）就能补上。`,
     })
   } else if (avgProtein >= targetProtein) {
-    out.push({ tone: 'ok', text: `蛋白质达标（日均 ${avgProtein}g），这对${goalType === 'cut' ? '减脂期保住肌肉' : '增肌'}很关键。` })
+    const why =
+      goalType === 'cut'
+        ? '减脂期保住肌肉'
+        : goalType === 'lose'
+          ? '减肥期少掉肌肉'
+          : goalType === 'bulk'
+            ? '增肌'
+            : '维持体重'
+    out.push({ tone: 'ok', text: `蛋白质达标（日均 ${avgProtein}g），这对${why}很关键。` })
   }
 
   if (avgIntake > targetKcal * 1.08) {
@@ -246,8 +257,8 @@ function buildInsights(input: {
 
   if (weightChange !== null && Math.abs(weightChange) >= 0.2) {
     const dir = weightChange < 0 ? '下降' : '上升'
-    const good =
-      (goalType === 'cut' && weightChange < 0) || (goalType === 'bulk' && weightChange > 0)
+    const wantDown = goalType === 'lose' || goalType === 'cut'
+    const good = (wantDown && weightChange < 0) || (goalType === 'bulk' && weightChange > 0)
     out.push({
       tone: good ? 'ok' : 'warn',
       text: `体重${dir} ${Math.abs(weightChange)} kg。${good ? '方向正确，保持当前缺口即可。' : '方向和目标不一致，先检查记录是否漏记。'}`,
@@ -257,7 +268,7 @@ function buildInsights(input: {
   if (totalMinutes < 60) {
     out.push({
       tone: 'info',
-      text: `本周训练 ${totalMinutes} 分钟。减脂期建议每周 2–3 次力量训练 + 150 分钟中等强度有氧。`,
+      text: `本周训练 ${totalMinutes} 分钟。建议每周 2–3 次力量训练 + 150 分钟中等强度有氧。`,
     })
   }
 

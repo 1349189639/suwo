@@ -9,9 +9,10 @@ import type {
   FoodItem,
   FoodLog,
   Goal,
+  Meal,
   Profile,
 } from '../domain/types'
-import { clearData, emptyData, importJson, loadData, saveData, setActiveAccount } from './storage'
+import { clearData, dedupeCustomFoods, emptyData, importJson, loadData, saveData, setActiveAccount } from './storage'
 import { seedDemoIfNeeded } from './demo'
 import * as cloud from './cloud.v2'
 import type { CloudUser } from './cloud.v2'
@@ -39,6 +40,11 @@ interface Store {
   toast: string | null
   setToast: (msg: string | null) => void
 
+  /** 可撤销的删除提示（5 秒后自动消失） */
+  undo: { text: string; run: () => void } | null
+  offerUndo: (text: string, run: () => void) => void
+  clearUndo: () => void
+
   // ===== 原有业务方法（签名保持不变，禁止改名） =====
   saveProfile: (profile: Profile, weightKg: number) => void
   saveGoal: (goal: Goal) => void
@@ -46,8 +52,13 @@ interface Store {
   addFoodLog: (log: Omit<FoodLog, 'id' | 'createdAt'>) => void
   removeFoodLog: (id: string) => void
   updateFoodLog: (id: string, patch: Partial<FoodLog>) => void
+  /** 撤销删除：按原 id 原样放回 */
+  restoreFoodLog: (log: FoodLog) => void
+  /** 把某天某餐整餐复制到另一天的同一餐，返回复制条数 */
+  copyMeal: (fromDate: string, toDate: string, meal: Meal) => number
   addExercise: (log: Omit<ExerciseLog, 'id' | 'createdAt'>) => void
   removeExercise: (id: string) => void
+  restoreExercise: (log: ExerciseLog) => void
   setSteps: (steps: number, date?: string) => void
   setWater: (ml: number, date?: string) => void
   setMealCost: (date: string, meal: string, amount: number) => void
@@ -83,16 +94,21 @@ let repushPending = false
 export const useStore = create<Store>((set, get) => {
   /** 写本地（旧命名空间 + 云端离线缓存），标记 dirty，并尝试异步推送。 */
   const commit = (data: AppData) => {
-    saveData(data)
+    // 扫码历史里堆过重复商品，落盘前统一去重（下一次同步也会把云端那份清干净）
+    const clean =
+      data.customFoods.length > 1
+        ? { ...data, customFoods: dedupeCustomFoods(data.customFoods) }
+        : data
+    saveData(clean)
     const user = get().cloudUser
     if (user) {
-      writeLocalCache(user.uid, data)
+      writeLocalCache(user.uid, clean)
       markDirty(true)
       set({ syncStatus: 'dirty' })
     }
     // 必须先把最新整档写进 store，再触发推送；否则 pushOnce 内 get().data 读到的还是旧快照，
     // 新记录只进了本地缓存、云端却收到旧数据（数组类记录会被“漏掉”）。
-    set({ data })
+    set({ data: clean })
     if (user) void pushOnce()
   }
 
@@ -133,6 +149,10 @@ export const useStore = create<Store>((set, get) => {
 
     setToast: (msg) => set({ toast: msg }),
 
+    undo: null,
+    offerUndo: (text, run) => set({ undo: { text, run } }),
+    clearUndo: () => set({ undo: null }),
+
     saveProfile: (profile, weightKg) => {
       const data = { ...get().data, profile }
       const today = todayKey()
@@ -172,6 +192,24 @@ export const useStore = create<Store>((set, get) => {
       commit(data)
     },
 
+    restoreFoodLog: (log) => {
+      const data = { ...get().data }
+      if (data.foodLogs.some((l) => l.id === log.id)) return
+      data.foodLogs = [...data.foodLogs, log].sort((a, b) => a.createdAt - b.createdAt)
+      commit(data)
+    },
+
+    copyMeal: (fromDate, toDate, meal) => {
+      const data = { ...get().data }
+      const src = data.foodLogs.filter((l) => l.date === fromDate && l.meal === meal)
+      if (src.length === 0) return 0
+      const now = Date.now()
+      const copies = src.map((l, i) => ({ ...l, id: nextId('f'), date: toDate, createdAt: now + i }))
+      data.foodLogs = [...data.foodLogs, ...copies]
+      commit(data)
+      return copies.length
+    },
+
     addExercise: (log) => {
       const data = { ...get().data }
       data.exercises = [...data.exercises, { ...log, id: nextId('e'), createdAt: Date.now() }]
@@ -181,6 +219,13 @@ export const useStore = create<Store>((set, get) => {
     removeExercise: (id) => {
       const data = { ...get().data }
       data.exercises = data.exercises.filter((e) => e.id !== id)
+      commit(data)
+    },
+
+    restoreExercise: (log) => {
+      const data = { ...get().data }
+      if (data.exercises.some((e) => e.id === log.id)) return
+      data.exercises = [...data.exercises, log].sort((a, b) => a.createdAt - b.createdAt)
       commit(data)
     },
 
@@ -210,6 +255,11 @@ export const useStore = create<Store>((set, get) => {
 
     addCustomFood: (food) => {
       const data = { ...get().data }
+      // 同一件商品（同条码或同名）只存一份，重复扫码不再堆副本
+      const dup = data.customFoods.find(
+        (f) => (food.barcode && f.barcode === food.barcode) || f.name === food.name,
+      )
+      if (dup) return
       data.customFoods = [...data.customFoods, { ...food, id: nextId('c'), custom: true }]
       commit(data)
     },

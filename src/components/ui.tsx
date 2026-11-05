@@ -1,6 +1,7 @@
 import { useBackToClose } from './useBackToClose'
 import { useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react'
+import { parseAmount, sanitizeAmount } from '../domain/amount'
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ')
@@ -98,6 +99,7 @@ export function Sheet({
           </button>
         </div>
         <div
+          data-sheet-scroll
           className="flex-1 overflow-y-auto px-5"
           style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
         >
@@ -131,7 +133,8 @@ export function Field({
 export const inputClass =
   'w-full rounded-2xl border border-line bg-surface2/70 px-4 py-3 text-[16px] outline-none transition focus:border-accent/60'
 
-function sanitize(raw: string, allowNegative: boolean): string {
+function sanitize(raw: string, allowNegative: boolean, allowMath = false): string {
+  if (allowMath) return sanitizeAmount(raw)
   let s = raw.replace(allowNegative ? /[^\d.-]/g : /[^\d.]/g, '')
   if (allowNegative) {
     const neg = s.trimStart().startsWith('-')
@@ -162,6 +165,8 @@ export function NumberField({
   center,
   big,
   autoFocus,
+  emptyWhenZero = false,
+  allowMath = false,
 }: {
   value: number
   onChange: (v: number) => void
@@ -175,16 +180,25 @@ export function NumberField({
   center?: boolean
   big?: boolean
   autoFocus?: boolean
+  /** 0 显示成空框（配 placeholder），省得先删掉那个 0 */
+  emptyWhenZero?: boolean
+  /** 允许直接输算式，如 12+8、3×5、100/4 */
+  allowMath?: boolean
 }) {
   const [draft, setDraft] = useState(() => String(value))
   const [focused, setFocused] = useState(false)
 
   useEffect(() => {
-    if (!focused) setDraft(String(value))
-  }, [value, focused])
+    if (!focused) setDraft(value === 0 && emptyWhenZero ? '' : String(value))
+  }, [value, focused, emptyWhenZero])
 
   const commit = (raw: string): number | null => {
     if (raw === '' || raw === '-' || raw === '.' || raw === '-.') return null
+    if (allowMath) {
+      const v = parseAmount(raw)
+      if (v === null) return null
+      return Math.min(max, Math.max(min, v))
+    }
     const n = Number(raw)
     if (!Number.isFinite(n)) return null
     const snapped = step > 0 ? Math.round(n / step) * step : n
@@ -206,7 +220,7 @@ export function NumberField({
         placeholder={placeholder}
         onFocus={() => setFocused(true)}
         onChange={(e) => {
-          const clean = sanitize(e.target.value, allowNegative)
+          const clean = sanitize(e.target.value, allowNegative, allowMath)
           setDraft(clean)
           const v = commit(clean)
           if (v !== null) onChange(v)
@@ -215,7 +229,7 @@ export function NumberField({
           setFocused(false)
           const v = commit(draft)
           const next = v === null ? min : v
-          setDraft(String(next))
+          setDraft(next === 0 && emptyWhenZero ? '' : String(next))
           onChange(next)
         }}
         className={cx(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeStreak, dayScore, kcalScore, proteinScore, spiritFrom, weekScore } from './adherence'
-import { cardioKcal, stepsKcal, strengthKcal, strengthMinutes, trainingVolume } from './activity'
+import { cardioKcal, stepsDistanceKm, stepsKcal, strengthKcal, strengthMinutes, trainingVolume } from './activity'
 import { buildFromBmi, muscleFromBuild, smoothWeight, stageFromBmi } from './avatar'
 import { addDays, dateKey, daysBetween, lastNDates } from './date'
 import {
@@ -15,7 +15,7 @@ import {
   plannedDelta,
 } from './nutrition'
 import type { AppData, Goal, Profile } from './types'
-import { summarizeDay, summarizeWeek } from './day'
+import { monthCost, summarizeDay, summarizeWeek } from './day'
 import { normalize } from '../data/storage'
 import { mergeAppData } from '../data/sync'
 
@@ -53,11 +53,21 @@ describe('BMI', () => {
 })
 
 describe('热量目标', () => {
-  it('默认减脂缺口 400', () => {
+  it('默认减脂缺口 350（口径温和，保肌肉）', () => {
     const r = dailyKcalTarget(male, 70, cutGoal, NOW)
     expect(r.base).toBe(1979)
-    expect(r.delta).toBe(400)
-    expect(r.kcal).toBe(1579)
+    expect(r.delta).toBe(350)
+    expect(r.kcal).toBe(1629)
+  })
+
+  it('默认减肥缺口 450（盯体重，比减脂更直接）', () => {
+    const active: Profile = { gender: 'male', birthYear: 1996, heightCm: 175, activity: 'moderate' }
+    const goal: Goal = { type: 'lose', startWeightKg: 70, startedAt: NOW.toISOString() }
+    const r = dailyKcalTarget(active, 70, goal, NOW)
+    expect(r.delta).toBe(450)
+    expect(r.kcal).toBe(Math.round(calcTdee(active, 70, NOW)) - 450)
+    expect(r.floored).toBe(false)
+    expect(r.cap).toBe(800)
   })
 
   it('体重过轻时触发安全下限', () => {
@@ -67,7 +77,15 @@ describe('热量目标', () => {
     expect(r.kcal).toBe(1200)
   })
 
-  it('有期限时按缺口反推，并限制在 250–750', () => {
+  it('减肥同样受安全下限保护', () => {
+    const small: Profile = { gender: 'female', birthYear: 2000, heightCm: 150, activity: 'sedentary' }
+    const goal: Goal = { type: 'lose', startWeightKg: 42, startedAt: NOW.toISOString() }
+    const r = dailyKcalTarget(small, 42, goal, NOW)
+    expect(r.floored).toBe(true)
+    expect(r.kcal).toBe(1200)
+  })
+
+  it('有期限时按缺口反推', () => {
     const goal: Goal = { ...cutGoal, targetWeightKg: 65, deadline: '2027-01-02' }
     const planned = plannedDelta(70, 65, '2027-01-02', dateKey(NOW))
     expect(planned).toBeCloseTo(550, 0)
@@ -75,10 +93,17 @@ describe('热量目标', () => {
     expect(r.delta).toBe(550)
   })
 
-  it('期限太短时缺口封顶 750', () => {
-    const goal: Goal = { ...cutGoal, targetWeightKg: 55, deadline: '2026-11-14' }
-    const r = dailyKcalTarget(male, 70, goal, NOW)
-    expect(r.delta).toBe(750)
+  it('期限太短时按各自上限封顶：减脂 600、减肥 800', () => {
+    const cut: Goal = { ...cutGoal, targetWeightKg: 55, deadline: '2026-11-14' }
+    expect(dailyKcalTarget(male, 70, cut, NOW).delta).toBe(600)
+    const lose: Goal = {
+      type: 'lose',
+      targetWeightKg: 55,
+      startWeightKg: 70,
+      deadline: '2026-11-14',
+      startedAt: NOW.toISOString(),
+    }
+    expect(dailyKcalTarget(male, 70, lose, NOW).delta).toBe(800)
   })
 
   it('增重为盈余（负数 delta）', () => {
@@ -98,6 +123,12 @@ describe('宏量分配', () => {
   it('蛋白按体重 g/kg', () => {
     expect(macroTarget('cut', 70, 1600).p).toBe(126)
     expect(macroTarget('bulk', 70, 2600).p).toBe(140)
+    expect(macroTarget('lose', 70, 1600).p).toBe(105)
+  })
+
+  it('减重类按目标体重算蛋白，超重的人不会被排出离谱的蛋白量', () => {
+    expect(macroTarget('cut', 100, 1800, 70).p).toBe(126)
+    expect(macroTarget('lose', 100, 1800, 70).p).toBe(105)
   })
 
   it('三大宏量热量之和接近总热量', () => {
@@ -110,6 +141,11 @@ describe('宏量分配', () => {
 describe('消耗估算', () => {
   it('10000 步 × 70kg ≈ 350 kcal', () => {
     expect(stepsKcal(70, 10000)).toBe(350)
+  })
+
+  it('步数折算距离：170cm 走 10000 步 ≈ 7.06 km', () => {
+    expect(stepsDistanceKm(10000, 170)).toBeCloseTo(7.06, 2)
+    expect(stepsDistanceKm(0, 170)).toBe(0)
   })
 
   it('有氧：MET × 体重 × 时长', () => {
@@ -351,7 +387,57 @@ describe('周汇总', () => {
   })
 })
 
+describe('报表花销', () => {
+  it('整餐记账（mealCosts）要算进当日花费', () => {
+    const data = sampleData()
+    data.mealCosts = { '2026-10-24:lunch': 30 }
+    expect(summarizeDay(data, '2026-10-24').cost).toBe(30)
+    expect(monthCost(data, '2026-10')).toBe(30)
+  })
+
+  it('单项价与整餐价取较大者，不重复相加', () => {
+    const data = sampleData()
+    data.foodLogs[0].cost = 12
+    data.mealCosts = { '2026-10-24:lunch': 30 }
+    expect(summarizeDay(data, '2026-10-24').cost).toBe(30)
+  })
+
+  it('整月合计包含没有食物记录、只记了整餐花费的日子', () => {
+    const data = sampleData()
+    data.mealCosts = {
+      '2026-10-24:lunch': 30,
+      '2026-10-03:dinner': 45.5,
+      '2026-09-30:lunch': 99,
+    }
+    expect(monthCost(data, '2026-10')).toBeCloseTo(75.5, 2)
+  })
+})
+
 describe('存储归一化', () => {
+  it('扫码重复入库的商品在加载时只留一份', () => {
+    const food = (id: string, barcode?: string) => ({
+      id,
+      name: '金典牛奶',
+      category: 'drink',
+      tags: ['扫码'],
+      per100: { kcal: 65, p: 3.3, c: 4.9, f: 3.6 },
+      defaultGrams: 250,
+      barcode,
+    })
+    const data = normalize({
+      schema: 1,
+      profile: null,
+      goal: null,
+      weights: [],
+      customFoods: [food('c1', '6907992100019'), food('c2', '6907992100019'), food('c3')],
+      foodLogs: [],
+      exercises: [],
+      steps: {},
+    })
+    expect(data.customFoods).toHaveLength(2)
+    expect(data.customFoods[0].id).toBe('c1')
+  })
+
   it('重启后保留纤维、含水量、花费、饮水和整餐花费', () => {
     const raw = {
       schema: 1,

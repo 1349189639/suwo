@@ -148,10 +148,16 @@ export function BarcodeScanner({ onPick }: { onPick: (food: FoodItem) => void })
     }
   }
 
+  // 识别成功后把商品回传出去。必须放 effect：在 render 里调 setState 会告警，还可能重复写入。
+  const onPickRef = useRef(onPick)
+  onPickRef.current = onPick
+  useEffect(() => {
+    if (!found) return
+    onPickRef.current(toFoodItem(found))
+  }, [found])
+
   if (found) {
-    // 直接回传，克数和餐次统一在「饮食日记」里填一次
-    onPick(toFoodItem(found))
-    return <div className="py-10 text-center text-[12px] text-muted">已识别，正在填入…</div>
+    return <div className="py-10 text-center text-[12px] text-muted">已识别，正在存入食物库…</div>
   }
   return (
     <div className="anim-rise space-y-3">

@@ -1,3 +1,4 @@
+import { guessFiberByName, guessWater } from '../domain/water'
 import type { MacroSet } from '../domain/types'
 
 export interface VisionItem extends MacroSet {
@@ -87,11 +88,20 @@ const PROMPT = `你是中国营养师。请识别这张照片里所有能吃的�
 
 要求：
 1. 只输出 JSON，不要解释、不要 markdown 代码块。
-2. 格式：{"items":[{"name":"米饭","grams":150,"kcal":174,"protein":3.9,"carbs":38.9,"fat":0.5,"confidence":0.8}]}
-3. grams 是中国家庭常见份量的估计值；kcal 是这一份的总热量，protein/carbs/fat 是这一份的克数。
-4. 混合菜（如宫保鸡丁）按整份估算，拆到主要食材没有意义。
-5. 认不出来或照片里没有食物时输出 {"items":[]}。
-6. confidence 用 0–1 表示你对份量估计的把握。`
+2. 格式：{"items":[{"name":"米饭","grams":150,"kcal":174,"protein":3.9,"carbs":38.9,"fat":0.5,"fiber":0.5,"water":65,"confidence":0.8}]}
+3. grams 是中国家庭常见份量的估计值，只按照片里看得到的量估，不要往大了猜。
+4. kcal 是这一份的总热量；protein/carbs/fat/fiber 是这一份的克数；water 是每 100g 的含水量（0–100 的整数）。
+5. 算法：先取《中国食物成分表》每 100g 的数值，再乘 grams/100；最后必须满足 kcal ≈ 4×protein + 4×carbs + 9×fat（误差 10% 以内）。
+6. 烹调油按实际做法只加一次：
+   - 清蒸 / 水煮 / 白灼 / 凉拌 / 不刷油的烤：不额外加油；
+   - 家常炒 / 爆炒：每份 5–8g 油；
+   - 红烧 / 干煸 / 糖醋 / 油炸：每份 10–15g 油；
+   - 同一锅油不要重复算到几个菜上，盘底汤汁也别全当成油。
+7. 脂肪不要凭印象高估，参考每 100g：白米饭 0.3g、馒头 1g、蔬菜 <1g、瘦肉 3–6g、鸡胸 3.6g、鸡蛋 9.5g、豆腐 5–7g、火腿肠/香肠 15–25g、五花肉 55–60g、坚果 50–60g。
+8. 水分参考（每 100g）：蔬菜水果 85–95，汤粥 90 上下，主食 60–70，肉类 55–70，油炸食品、坚果、饼干低于 10。
+9. 混合菜（如宫保鸡丁）按整份估算，拆到主要食材没有意义。
+10. 认不出来或照片里没有食物时输出 {"items":[]}。
+11. confidence 用 0–1 表示你对份量估计的把握。`
 
 function stripFence(s: string): string {
   return s
@@ -100,14 +110,54 @@ function stripFence(s: string): string {
     .trim()
 }
 
+export class VisionError extends Error {}
+
 function num(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : v
   return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n * 10) / 10) : 0
 }
 
-export class VisionError extends Error {}
+/** 允许缺省的数字：缺省返回 undefined，好让下游分清「模型没说」和「模型说是 0」 */
+function optNum(v: unknown): number | undefined {
+  const n = typeof v === 'string' ? Number(v) : v
+  return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n * 10) / 10) : undefined
+}
 
-function parseItems(text: string): VisionItem[] {
+const round1 = (n: number) => Math.round(n * 10) / 10
+const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi)
+
+/**
+ * 收口模型返回的一项：
+ * - 克数和宏量都有物理上限（脂肪不可能比整份食物还重）；
+ * - 热量和 4/4/9 对不上时以宏量为准（模型经常前后不一致，脂肪就是这么被算高的）。
+ */
+export function sanitizeItem(it: VisionItem): VisionItem {
+  const grams = Math.round(clamp(it.grams, 1, 3000))
+  const p = clamp(it.p, 0, grams)
+  const c = clamp(it.c, 0, grams)
+  const f = clamp(it.f, 0, grams)
+  const fiber = it.fiber === undefined ? undefined : clamp(it.fiber, 0, grams)
+  const water = it.water === undefined ? undefined : Math.round(clamp(it.water, 0, 100))
+
+  const atwater = 4 * p + 4 * c + 9 * f
+  let kcal = it.kcal
+  if (kcal <= 0) kcal = atwater
+  else if (atwater > 0 && Math.abs(kcal - atwater) > Math.max(30, kcal * 0.2)) kcal = atwater
+
+  return {
+    name: it.name,
+    grams,
+    kcal: Math.round(kcal),
+    p: round1(p),
+    c: round1(c),
+    f: round1(f),
+    fiber: fiber === undefined ? guessFiberByName(it.name) : round1(fiber),
+    water: water ?? guessWater(it.name),
+    confidence: it.confidence,
+  }
+}
+
+export function parseVisionItems(text: string): VisionItem[] {
   let parsed: { items?: unknown }
   try {
     parsed = JSON.parse(stripFence(text)) as { items?: unknown }
@@ -125,9 +175,12 @@ function parseItems(text: string): VisionItem[] {
         p: num(o.protein),
         c: num(o.carbs),
         f: num(o.fat),
+        fiber: optNum(o.fiber),
+        water: optNum(o.water),
         confidence: typeof o.confidence === 'number' ? o.confidence : undefined,
       }
     })
+    .map(sanitizeItem)
     .filter((it) => it.name !== '' && it.kcal > 0)
 }
 
@@ -177,19 +230,20 @@ export async function recognizeImage(dataUrl: string): Promise<VisionItem[]> {
       ],
     },
   ])
-  return parseItems(text)
+  return parseVisionItems(text)
 }
 
 const RECALC_PROMPT = `你是中国营养师。下面是用户确认/修改过的食物和重量（单位克），请按中国食物成分表重新计算每一项的营养。
 
 只输出 JSON，不要解释、不要 markdown：
-{"items":[{"name":"牛肉（瘦）","grams":120,"kcal":300,"protein":31.2,"carbs":0,"fat":18}]}
+{"items":[{"name":"牛肉（瘦）","grams":120,"kcal":300,"protein":31.2,"carbs":0,"fat":18,"fiber":0,"water":65}]}
 
 要求：
 1. name 用规范叫法（用户写「牛肉」就输出「牛肉（瘦）」）。
 2. grams 原样返回，不要改重量。
-3. kcal 是这一份的总热量，protein/carbs/fat 是这一份的克数。
-4. 项目数量与顺序必须和输入完全一致。`
+3. kcal 是这一份的总热量，protein/carbs/fat/fiber 是这一份的克数，water 是每 100g 的含水量（0–100 的整数）。
+4. 必须满足 kcal ≈ 4×protein + 4×carbs + 9×fat（误差 10% 以内）。
+5. 项目数量与顺序必须和输入完全一致。`
 
 /** 用户手改了菜名/克数后，让模型按新内容重算营养 */
 export async function recalcItems(list: { name: string; grams: number }[]): Promise<VisionItem[]> {
@@ -203,19 +257,20 @@ export async function recalcItems(list: { name: string; grams: number }[]): Prom
       ],
     },
   ])
-  return parseItems(text)
+  return parseVisionItems(text)
 }
 
 const ESTIMATE_PROMPT = `你是中国营养师。用户想吃/吃了「{{Q}}」，请估算它的营养。
 
 只输出 JSON，不要解释、不要 markdown：
-{"items":[{"name":"牛肉面","grams":500,"kcal":600,"protein":28,"carbs":75,"fat":18,"confidence":0.6}]}
+{"items":[{"name":"牛肉面","grams":500,"kcal":600,"protein":28,"carbs":75,"fat":18,"fiber":2,"water":70,"confidence":0.6}]}
 
 要求：
 1. 按中国常见做法和一份的量估算，grams 写估重。
 2. name 用规范叫法。
 3. 最多 3 项（比如"汉堡+可乐"可以拆成两项）。
-4. protein/carbs/fat 是这一份的克数。`
+4. protein/carbs/fat/fiber 是这一份的克数，water 是每 100g 的含水量（0–100 的整数）。
+5. 必须满足 kcal ≈ 4×protein + 4×carbs + 9×fat（误差 10% 以内）。`
 
 /** 食物库里没有时，让 AI 估一个 */
 export async function estimateFood(query: string): Promise<VisionItem[]> {
@@ -224,5 +279,5 @@ export async function estimateFood(query: string): Promise<VisionItem[]> {
   const text = await chat([
     { role: 'user', content: [{ type: 'text', text: ESTIMATE_PROMPT.replace('{{Q}}', q) }] },
   ])
-  return parseItems(text)
+  return parseVisionItems(text)
 }

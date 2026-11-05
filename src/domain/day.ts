@@ -1,4 +1,4 @@
-import { guessWater } from './water'
+import { guessFiberByName, guessWater } from './water'
 import { computeStreak, dayScore, spiritFrom, spiritLabel, weekScore } from './adherence'
 import { stepsKcal } from './activity'
 import { buildFromBmi, muscleFromBuild, smoothWeight, stageFromBmi, type BodyStage } from './avatar'
@@ -53,7 +53,7 @@ export function targetsFor(data: AppData): Targets {
   const kcal = goal
     ? dailyKcalTarget(profile, weight, goal).kcal
     : Math.round(calcTdee(profile, weight))
-  return macroTarget(goal?.type ?? 'maintain', weight, kcal)
+  return macroTarget(goal?.type ?? 'maintain', weight, kcal, goal?.targetWeightKg)
 }
 
 export function summarizeDay(data: AppData, date: string): DaySummary {
@@ -74,7 +74,7 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
   const exerciseKcal = exercises.reduce((a, e) => a + e.kcal, 0)
   const exerciseMinutes = exercises.reduce((a, e) => a + e.minutes, 0)
   const steps = data.steps[date] ?? 0
-  const fiber = Math.round(meals.reduce((a, l) => a + (l.fiber ?? 0), 0) * 10) / 10
+  const fiber = Math.round(meals.reduce((a, l) => a + (l.fiber ?? guessFiberByName(l.name)), 0) * 10) / 10
   const mealCosts = {} as Record<Meal, number>
   for (const m of MEAL_ORDER) {
     const itemCost = meals.filter((l) => l.meal === m).reduce((a, l) => a + (l.cost ?? 0), 0)
@@ -124,6 +124,24 @@ export function summarizeDay(data: AppData, date: string): DaySummary {
     score,
     volume,
   }
+}
+
+/**
+ * 某个月（YYYY-MM）的餐饮花费合计。
+ * 必须走 summarizeDay：整餐记账存在 data.mealCosts 里，不是挂在单条食物上的。
+ */
+export function monthCost(data: AppData, monthPrefix: string): number {
+  const dates = new Set<string>()
+  for (const log of data.foodLogs) {
+    if (log.date.startsWith(monthPrefix)) dates.add(log.date)
+  }
+  for (const key of Object.keys(data.mealCosts ?? {})) {
+    const date = key.split(':')[0]
+    if (date.startsWith(monthPrefix)) dates.add(date)
+  }
+  let total = 0
+  for (const date of dates) total += summarizeDay(data, date).cost
+  return Math.round(total * 100) / 100
 }
 
 export interface WeekSummary {

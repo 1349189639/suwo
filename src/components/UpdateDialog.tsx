@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from './ui'
 import { downloadAndInstall, type RemoteUpdate } from '../data/updater'
+import { copyText } from '../data/clipboard'
 
 export function UpdateDialog({ update, onClose }: { update: RemoteUpdate; onClose: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle')
@@ -91,10 +92,10 @@ export function UpdateDialog({ update, onClose }: { update: RemoteUpdate; onClos
               <Button
                 className="flex-1"
                 onClick={() => {
-                  if (update.apkUrl) window.open(update.apkUrl, '_system')
+                  if (update.apkUrl) void copyText(update.apkUrl)
                 }}
               >
-                打开下载链接
+                复制下载链接
               </Button>
             </>
           ) : (

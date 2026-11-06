@@ -1,7 +1,10 @@
 import { useBackToClose } from './useBackToClose'
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { Button } from './ui'
 import { CHANGELOG, LATEST, type ChangelogEntry } from '../data/changelog'
+import { copyText } from '../data/clipboard'
+import { downloadAndInstall } from '../data/updater'
 
 const KEY = 'suwo:notice:v1'
 const MAX_SHOWN = 3
@@ -30,6 +33,12 @@ function writeState(s: Record<string, NoticeState>) {
 /** 每次更新后自动弹，最多 3 次，可「不再显示」 */
 export function UpdateNotice() {
   const [entry, setEntry] = useState<ChangelogEntry | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [installing, setInstalling] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [msg, setMsg] = useState('')
+
+  const native = Capacitor.isNativePlatform()
 
   useBackToClose(() => setEntry(null), entry !== null)
 
@@ -51,6 +60,31 @@ export function UpdateNotice() {
     setEntry(null)
   }
 
+  const onCopy = async () => {
+    if (!entry.actionUrl) return
+    await copyText(entry.actionUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  /** 原生壳里也可以直接走应用内下载 + 签名校验安装（WebView 自己下不了 APK） */
+  const onInstall = async () => {
+    if (!entry.actionUrl) return
+    setInstalling(true)
+    setProgress(0)
+    setMsg('')
+    try {
+      await downloadAndInstall(
+        { version: entry.version, apkUrl: entry.actionUrl },
+        setProgress,
+      )
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : '安装失败，请改用复制链接到浏览器下载')
+    } finally {
+      setInstalling(false)
+    }
+  }
+
   return (
     <div className="anim-fade fixed inset-0 z-50 grid place-items-center bg-black/60 px-5">
       <div className="w-full max-w-[400px] overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl">
@@ -67,47 +101,44 @@ export function UpdateNotice() {
             </li>
           ))}
         </ul>
-        <div className="flex gap-2 px-5 pb-5">
-          {entry.actionUrl && (
-            <Button
-              variant="soft"
-              className="flex-1"
-              onClick={() => {
-                void copyLink(entry.actionUrl as string)
-              }}
-            >
-              复制链接
+        {entry.actionUrl ? (
+          <div className="space-y-2 px-5 pb-5">
+            <Button className="w-full" onClick={() => void onCopy()}>
+              {copied ? '已复制，去浏览器粘贴' : '复制下载链接'}
             </Button>
-          )}
-          <Button variant="soft" className="flex-1" onClick={() => close(true)}>
-            不再显示
-          </Button>
-          {entry.actionUrl ? (
-            <Button className="flex-1" onClick={() => window.open(entry.actionUrl, '_system')}>
-              {entry.actionLabel ?? '下载最新版'}
+            <div className="flex gap-2">
+              {native && (
+                <Button
+                  variant="soft"
+                  className="flex-1"
+                  disabled={installing}
+                  onClick={() => void onInstall()}
+                >
+                  {installing ? `下载中 ${progress}%` : '直接下载安装'}
+                </Button>
+              )}
+              <Button variant="soft" className="flex-1" onClick={() => close(true)}>
+                不再显示
+              </Button>
+            </div>
+            <p className="text-center text-[10px] leading-4 text-muted/55">
+              复制后粘到手机自带浏览器打开 → 下载 → 先卸载旧版再装新包（1.3 可直接覆盖，不用卸载）
+            </p>
+            {msg && <p className="text-center text-[10.5px] leading-4 text-[#ff6b81]">{msg}</p>}
+          </div>
+        ) : (
+          <div className="flex gap-2 px-5 pb-5">
+            <Button variant="soft" className="flex-1" onClick={() => close(true)}>
+              不再显示
             </Button>
-          ) : (
             <Button className="flex-1" onClick={() => close(false)}>
               知道了
             </Button>
-          )}
-        </div>
-        {entry.actionUrl && (
-          <p className="px-5 pb-4 text-center text-[10px] leading-4 text-muted/50">
-            按钮打不开？用「复制链接」粘到系统浏览器里下载
-          </p>
+          </div>
         )}
       </div>
     </div>
   )
-}
-
-async function copyLink(url: string) {
-  try {
-    await navigator.clipboard.writeText(url)
-  } catch {
-    window.prompt('复制这个下载链接：', url)
-  }
 }
 
 /** 历史更新公告 */

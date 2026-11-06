@@ -24,7 +24,8 @@ import {
   estimateFinishDate,
   macroTarget,
 } from '../domain/nutrition'
-import type { ActivityLevel, Gender, Goal, GoalType, Profile } from '../domain/types'
+import type { ActivityLevel, CareTag, Gender, Goal, GoalType, Profile } from '../domain/types'
+import { CARE_TAGS } from '../domain/care'
 import { GOAL_DESC, GOAL_FOCUS, GOAL_LABEL, GOAL_ORDER } from '../domain/types'
 import { useStore } from '../data/store'
 
@@ -42,6 +43,7 @@ export function Onboarding() {
   const [weight, setWeight] = useState(72)
   const [activity, setActivity] = useState<ActivityLevel>('light')
   const [goalType, setGoalType] = useState<GoalType>('cut')
+  const [cares, setCares] = useState<CareTag[]>([])
   const [targetWeight, setTargetWeight] = useState(65)
   const [weeks, setWeeks] = useState(0)
   const [style, setStyle] = useState<OutfitStyle>('sport')
@@ -60,6 +62,7 @@ export function Onboarding() {
   const deadline = weeks > 0 ? addDays(todayKey(), weeks * 7) : undefined
   const goal: Goal = {
     type: goalType,
+    cares: cares.length > 0 ? cares : undefined,
     startWeightKg: weight,
     targetWeightKg: goalType === 'maintain' ? undefined : targetWeight,
     deadline,
@@ -279,6 +282,37 @@ export function Onboarding() {
                   <div className="mt-1 text-[10px] leading-4 text-accent/80">{GOAL_FOCUS[g]}</div>
                 </button>
               ))}
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-[13px] text-muted">调理关注点</span>
+                <span className="text-[10px] text-muted/50">可多选，也可以不选</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {CARE_TAGS.map((c) => {
+                  const on = cares.includes(c.id)
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() =>
+                        setCares((prev) =>
+                          prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id],
+                        )
+                      }
+                      className={`rounded-xl border px-2 py-2 text-left ${
+                        on ? 'border-accent/60 bg-accent/10' : 'border-line/60 bg-surface2/40'
+                      }`}
+                    >
+                      <div className={`text-[12.5px] ${on ? 'text-accent' : 'text-ink'}`}>{c.label}</div>
+                      <div className="mt-0.5 text-[9px] leading-3 text-muted/45">{c.subtitle}</div>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-4 text-muted/45">
+                调理只影响提示与每日推荐，不改热量目标；不替代治疗，有明确疾病请遵医嘱。
+              </p>
             </div>
 
             {goalType !== 'maintain' && (

@@ -205,7 +205,7 @@ export function FoodDiary({
           每 100g · {Math.round(picked.per100.kcal)} kcal · 蛋白 {picked.per100.p}g · 碳水{' '}
           {picked.per100.c}g · 脂肪 {picked.per100.f}g
         </div>
-        <HighlightChips name={picked.name} tags={picked.tags} className="mt-1.5" />
+        <HighlightChips name={picked.name} tags={picked.tags} fat={picked.per100.f} kcal={picked.per100.kcal} className="mt-1.5" />
 
         <div className="mt-5 space-y-3">
           <Field label="份量" hint={`加入${MEAL_LABEL[meal]}`}>
@@ -683,7 +683,7 @@ export function FoodDiary({
                         {it.water ? ` · 水 ${Math.round((it.grams * it.water) / 100)}ml` : ''}
                         {it.cost ? ` · ¥${it.cost.toFixed(1)}` : ''}
                       </div>
-                      <HighlightChips name={it.name} className="mt-0.5" />
+                      <HighlightChips name={it.name} fat={it.f} kcal={it.kcal} className="mt-0.5" />
                     </button>
                     <div className="flex items-center gap-2">
                       <span className="tabular text-[12px] text-muted">{it.kcal}</span>

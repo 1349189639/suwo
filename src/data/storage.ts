@@ -1,6 +1,7 @@
 import type {
   AppData,
   AvatarAction,
+  CareTag,
   Consent,
   ExerciseLog,
   FoodCategory,
@@ -12,6 +13,7 @@ import type {
   Profile,
   WeightEntry,
 } from '../domain/types'
+import { CARE_IDS } from '../domain/care'
 import { FOOD_CATEGORY_LABEL } from '../domain/types'
 import { normalizeLook } from '../domain/look'
 
@@ -92,12 +94,17 @@ export function normalize(input: unknown): AppData {
       : null
 
   const goalRaw = obj(src.goal)
+  const rawCares = Array.isArray(goalRaw.cares) ? (goalRaw.cares as unknown[]) : []
+  const cares = rawCares.filter((c): c is CareTag =>
+    typeof c === 'string' && (CARE_IDS as string[]).includes(c),
+  )
   const goal: Goal | null = profile
     ? {
         type:
           goalRaw.type === 'lose' || goalRaw.type === 'bulk' || goalRaw.type === 'maintain'
             ? goalRaw.type
             : 'cut',
+        cares: cares.length > 0 ? cares : undefined,
         startWeightKg: num(goalRaw.startWeightKg, 70),
         targetWeightKg:
           typeof goalRaw.targetWeightKg === 'number' ? goalRaw.targetWeightKg : undefined,

@@ -1,7 +1,7 @@
 import { useBackToClose } from '../components/useBackToClose'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
-import { Button, CircleAction, Field, NumberField, ProgressBar, Sheet, inputClass } from '../components/ui'
+import { Button, Card, CircleAction, Field, NumberField, ProgressBar, Sheet, inputClass } from '../components/ui'
 import { ChangelogList } from '../components/UpdateNotice'
 import { HighlightChips } from '../components/HighlightChips'
 import { Coach } from './Coach'
@@ -9,6 +9,7 @@ import { Feedback } from './Feedback'
 import { isNativeApp, readNativeSteps } from '../data/steps'
 import { useStore } from '../data/store'
 import { stepsDistanceKm, stepsKcal } from '../domain/activity'
+import { recommendToday } from '../data/recommend'
 import { stageInfo } from '../domain/avatar'
 import { bodyState, currentSpiritInfo, currentStreak, summarizeDay, targetsFor } from '../domain/day'
 import { buildFromBmi } from '../domain/avatar'
@@ -62,6 +63,7 @@ export function Home({
   const today = todayKey()
   const day = summarizeDay(data, today)
   const targets = targetsFor(data)
+  const plan = recommendToday(data, today)
   const body = bodyState(data)
   const spiritInfo = currentSpiritInfo(data)
   const spirit = spiritInfo.score
@@ -496,6 +498,41 @@ export function Home({
         华为 / 荣耀机型对计步权限管得比较严，数字可能偏低或少报，这时直接手动填写即可
       </p>
 
+      {/* 今天可以这样吃 */}
+      <div className="mb-2 mt-4 flex items-end justify-between px-1">
+        <h3 className="text-[13px] font-semibold tracking-wide text-muted">今天可以这样吃</h3>
+        <span className="text-[10px] text-muted/45">
+          {data.goal?.cares?.length ? '按剩余额度 + 调理关注点' : '按剩余额度'}
+        </span>
+      </div>
+      <Card className="space-y-2">
+        {plan.items.length === 0 ? (
+          <p className="text-[11.5px] leading-5 text-muted">{plan.note}</p>
+        ) : (
+          <>
+            {plan.items.map((it) => (
+              <div key={it.name} className="flex items-baseline justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[13px]">{it.name}</span>
+                  <span className="ml-1.5 text-[10px] text-muted/60">{it.grams}g</span>
+                  <div className="mt-0.5 text-[9.5px] leading-3 text-muted/45">{it.reason}</div>
+                </div>
+                <span className="tabular shrink-0 text-[12px] text-accent">{it.kcal}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-line/40 pt-1.5">
+              <span className="text-[10px] text-muted/60">
+                合计 <span className="tabular text-[11px] text-ink">{plan.kcal}</span> kcal
+              </span>
+              <button onClick={onFood} className="text-[10.5px] text-accent">
+                去记录 →
+              </button>
+            </div>
+            <p className="text-[9.5px] leading-4 text-muted/40">{plan.note}</p>
+          </>
+        )}
+      </Card>
+
       {/* 今日记录 */}
       <div className="mb-2 mt-4 flex items-end justify-between px-1">
         <h3 className="text-[13px] font-semibold tracking-wide text-muted">今天的记录</h3>
@@ -536,7 +573,9 @@ export function Home({
               ) : (
                 <div className="text-[11px] text-muted/70">{e.meta}</div>
               )}
-              {e.kind === 'food' && <HighlightChips name={e.name} className="mt-0.5" />}
+              {e.kind === 'food' && (
+                <HighlightChips name={e.name} fat={e.f} kcal={e.kcal} className="mt-0.5" />
+              )}
             </button>
             <div className="flex items-center gap-2">
               <span className={`tabular text-[13px] font-semibold ${e.kcal < 0 ? 'text-accent' : 'text-ink'}`}>

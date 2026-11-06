@@ -29,6 +29,16 @@ describe('食物搜索', () => {
     expect(r.some((f) => f.name.includes('玉米'))).toBe(true)
   })
 
+  it('搜方言别名能命中正名（洋白菜 → 卷心菜）', () => {
+    const r = filterFoods('洋白菜', [], 'all')
+    expect(r.length).toBeGreaterThan(0)
+    expect(r[0].name).toBe('卷心菜')
+  })
+
+  it('别名同样优先于扩展匹配（西红柿 → 番茄）', () => {
+    const r = filterFoods('西红柿', [], 'all')
+    expect(r[0].name).toBe('番茄')
+  })
   it('空关键词按分类过滤', () => {
     const r = filterFoods('', [], 'fruit')
     expect(r.every((f) => f.category === 'fruit')).toBe(true)

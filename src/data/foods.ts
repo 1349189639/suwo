@@ -1,4 +1,5 @@
 export { guessFiber, guessWater } from '../domain/water'
+import { aliasWords, canonicalOf } from '../domain/aliases'
 import type { FoodCategory, FoodItem } from '../domain/types'
 
 type Spec = Omit<FoodItem, 'id'>
@@ -121,6 +122,12 @@ const SPECS: Spec[] = [
   food('veg', '黄瓜', 15, 0.7, 3.6, 0.1, 150, '减脂 补水'),
   food('veg', '菠菜', 23, 2.9, 3.6, 0.4, 150, '铁 叶酸'),
   food('veg', '大白菜', 17, 1.5, 3.2, 0.1, 150, '蔬菜'),
+  food('veg', '卷心菜', 24, 1.5, 4.6, 0.2, 150, '蔬菜 高纤维'),
+  food('veg', '香菜', 33, 2.9, 6.2, 0.4, 10, '蔬菜 调味'),
+  food('veg', '空心菜', 20, 2.6, 3.1, 0.2, 150, '蔬菜 高纤维'),
+  food('veg', '莴笋', 15, 1.0, 2.8, 0.1, 150, '蔬菜 低卡'),
+  food('veg', '毛豆', 131, 13.1, 10.5, 5.0, 100, '豆类 高蛋白 高纤维'),
+  food('veg', '豇豆', 34, 2.7, 6.5, 0.2, 150, '蔬菜 高纤维'),
   food('veg', '娃娃菜', 13, 1.4, 2.4, 0.2, 150, '蔬菜'),
   food('veg', '胡萝卜', 41, 0.9, 9.6, 0.2, 100, '维生素A'),
   food('veg', '香菇', 22, 3.1, 3.3, 0.3, 100, '菌菇 鲜味'),
@@ -421,10 +428,20 @@ export function filterFoods(
         : all.filter((f) => f.category === category)
 
   const words = expandQuery(q)
+  // 方言 / 俗名：洋白菜 → 卷心菜
+  const canonical = canonicalOf(q)
+  if (canonical) {
+    words.push(canonical.toLowerCase())
+    for (const w of aliasWords(canonical)) words.push(w.toLowerCase())
+  }
+
   const scored = scoped
     .map((f) => {
       const name = f.name.toLowerCase()
       const tags = f.tags.join(' ').toLowerCase()
+      if (canonical && (name.includes(canonical.toLowerCase()) || tags.includes(canonical.toLowerCase()))) {
+        return { f, score: 100 }
+      }
       if (name.includes(q) || tags.includes(q)) return { f, score: 100 }
       for (const w of words) {
         if (w !== q && name.includes(w)) return { f, score: 70 }

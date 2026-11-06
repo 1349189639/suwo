@@ -41,12 +41,17 @@ export interface Profile {
 
 export interface Goal {
   type: GoalType
+  /** 调理关注点（多选、可不选），只影响提示与推荐，不改热量目标 */
+  cares?: CareTag[]
   startWeightKg: number
   targetWeightKg?: number
   /** 目标期限，YYYY-MM-DD。留空表示不设期限 */
   deadline?: string
   startedAt: string
 }
+
+/** 调理关注点：脾胃 / 心肺 / 肝 / 骨骼 / 气血 / 血糖 */
+export type CareTag = 'digest' | 'cardio' | 'liver' | 'bone' | 'iron' | 'sugar'
 
 export interface WeightEntry {
   date: string
@@ -62,6 +67,12 @@ export interface MacroSet {
   fiber?: number
   /** 含水量，每 100g 的克数（只对高水分食物标注） */
   water?: number
+  /** 钠，毫克 / 100g（估算值，见 domain/nutrients.ts） */
+  sodium?: number
+  /** 添加糖，克 / 100g（估算值） */
+  sugar?: number
+  /** 维生素 D，微克 / 100g（估算值） */
+  vitd?: number
 }
 
 export interface FoodItem {

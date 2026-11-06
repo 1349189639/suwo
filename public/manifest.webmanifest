@@ -1,7 +1,7 @@
-﻿{
-  "name": "濉戞垜 路 鐑噺璐︽湰",
-  "short_name": "濉戞垜",
-  "description": "鎶婄儹閲忚处鏈拰铏氭嫙褰㈣薄缁撳悎鐨勪釜浜哄仴韬伐鍏?,
+{
+  "name": "塑我 · 热量账本",
+  "short_name": "塑我",
+  "description": "把热量账本和虚拟形象结合的个人健身工具",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",
@@ -11,10 +11,34 @@
   "theme_color": "#0a0e13",
   "icons": [
     {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

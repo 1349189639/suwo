@@ -1,14 +1,32 @@
-export const CURRENT_VERSION = '0.9.2'
+export const CURRENT_VERSION = '0.9.3'
 
 export interface ChangelogEntry {
   version: string
   date: string
   title: string
   items: string[]
+  /** 可选：公告里额外给一个主按钮（如「下载最新版」） */
+  actionUrl?: string
+  actionLabel?: string
 }
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.3',
+    date: '2026-11-06',
+    title: '全新图标 · 隐私政策更新 · 请下载最新版',
+    items: [
+      '换了全新的 App 图标，和 App 里的人物形象同一画风',
+      '隐私政策更新：为将来可能的付费功能、广告预留说明，同时明确健康数据永不用于广告、安全标准不降低',
+      '桌面图标属于安装包的一部分，需要重新下载安装最新版本才会更新；本次沿用正式签名，可直接覆盖安装，不用卸载，数据不会丢',
+      '暂不安装也能正常使用，日常功能更新依旧自动生效',
+      '微信内打不开下载链接的话，请点右上角「…」→ 在浏览器打开',
+    ],
+    actionLabel: '下载最新版',
+    actionUrl:
+      'https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.4-code5.apk',
+  },
   {
     version: '0.9.2',
     date: '2026-11-01',

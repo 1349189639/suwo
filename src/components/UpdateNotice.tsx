@@ -68,16 +68,46 @@ export function UpdateNotice() {
           ))}
         </ul>
         <div className="flex gap-2 px-5 pb-5">
+          {entry.actionUrl && (
+            <Button
+              variant="soft"
+              className="flex-1"
+              onClick={() => {
+                void copyLink(entry.actionUrl as string)
+              }}
+            >
+              复制链接
+            </Button>
+          )}
           <Button variant="soft" className="flex-1" onClick={() => close(true)}>
             不再显示
           </Button>
-          <Button className="flex-1" onClick={() => close(false)}>
-            知道了
-          </Button>
+          {entry.actionUrl ? (
+            <Button className="flex-1" onClick={() => window.open(entry.actionUrl, '_system')}>
+              {entry.actionLabel ?? '下载最新版'}
+            </Button>
+          ) : (
+            <Button className="flex-1" onClick={() => close(false)}>
+              知道了
+            </Button>
+          )}
         </div>
+        {entry.actionUrl && (
+          <p className="px-5 pb-4 text-center text-[10px] leading-4 text-muted/50">
+            按钮打不开？用「复制链接」粘到系统浏览器里下载
+          </p>
+        )}
       </div>
     </div>
   )
+}
+
+async function copyLink(url: string) {
+  try {
+    await navigator.clipboard.writeText(url)
+  } catch {
+    window.prompt('复制这个下载链接：', url)
+  }
 }
 
 /** 历史更新公告 */

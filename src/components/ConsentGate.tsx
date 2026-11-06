@@ -11,9 +11,13 @@ import { useStore } from '../data/store'
  */
 export function ConsentGate() {
   const agreeConsent = useStore((s) => s.agreeConsent)
+  const prevConsent = useStore((s) => s.data.consent)
   const [checked, setChecked] = useState(false)
   const [showPolicy, setShowPolicy] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  // 之前同意过、但政策版本变了：老用户重新同意一次，给一句说明免得困惑
+  const reprompt = Boolean(prevConsent && prevConsent.policyVersion !== PRIVACY_POLICY.updatedAt)
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center px-6 py-10">
@@ -23,6 +27,11 @@ export function ConsentGate() {
         <p className="mt-2 text-[13px] leading-6 text-muted">
           这个 App 会保存你的体重、饮食和运动记录，用来算热量和生成报表。先看一眼《隐私政策》，同意后就能用了。
         </p>
+        {reprompt && (
+          <p className="mt-2 rounded-xl bg-accent/10 px-3 py-2 text-[12px] leading-5 text-accent">
+            隐私政策已更新（{PRIVACY_POLICY.updatedAt}），请重新阅读并确认；你的记录不受影响。
+          </p>
+        )}
       </div>
 
       <div className="rounded-2xl border border-line bg-surface2/50 p-4 text-[12px] leading-6 text-muted">

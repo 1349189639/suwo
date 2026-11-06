@@ -1,8 +1,9 @@
 import { NORMALIZING_LINES, WEEK_DISCLAIMER } from '../data/adviceCopy'
 import { pickOptions, type ActionOption } from './adviceOptions'
 import { GROUP_LABEL, resolveGroups } from './dietGroups'
+import { CARE_GROUP_HINT, careDef } from './care'
 import { lastNDates, todayKey } from './date'
-import type { DietGroup, EatingProfile, FoodItem, FoodLog } from './types'
+import type { CareTag, DietGroup, EatingProfile, FoodItem, FoodLog } from './types'
 
 export interface WeekDietReview {
   window: { from: string; to: string; loggedDays: number; totalDays: number }
@@ -14,6 +15,8 @@ export interface WeekDietReview {
   observations: string[]
   /** 最多 2 条，优先零成本 */
   options: ActionOption[]
+  /** 与所选调理关注点相关的覆盖行；没选就是 undefined */
+  careCoverageLine?: string
   compareToLastWeek?: { group: DietGroup; thisWeek: number; lastWeek: number }
   normalizing?: string
   disclaimer: string
@@ -49,6 +52,7 @@ export function buildWeekReview(
   end = todayKey(),
   previousLogs?: FoodLog[],
   lookup?: (name: string) => FoodItem | undefined,
+  cares?: CareTag[],
 ): WeekDietReview {
   const dates = lastNDates(end, 7)
   const from = dates[0]
@@ -106,10 +110,10 @@ export function buildWeekReview(
   }
 
   const observations: string[] = [
-    `这周有 ${coverage.vegetable.days} 天记到了蔬菜，其中 ${coverage.darkVegetable.times} 次是深色菜`,
-    `这周有 ${coverage.fruit.days} 天记到了水果；记到奶或豆制品 ${coverage.dairy.days + coverage.soyNut.days > 7 ? 7 : coverage.dairy.days + coverage.soyNut.days} 天`,
-    `这周记到鱼虾 ${coverage.aquatic.times} 次、粗粮或薯类 ${coverage.wholeGrain.days} 天`,
-    `这周记到 ${distinctFoods} 种食物（按记录计，不是全部饮食）`,
+    `蔬菜出现在 ${coverage.vegetable.days} 天里，其中 ${coverage.darkVegetable.times} 次是深色菜`,
+    `牛奶、酸奶、豆腐这类，${coverage.dairy.days + coverage.soyNut.days} 天记到过`,
+    `鱼虾记到 ${coverage.aquatic.times} 次，粗粮或薯类 ${coverage.wholeGrain.days} 天`,
+    `水果 ${coverage.fruit.days} 天；这周一共记到 ${distinctFoods} 种食物（按记录计）`,
   ]
 
   const gaps: DietGroup[] = []
@@ -123,9 +127,40 @@ export function buildWeekReview(
     observations: observations.slice(0, 3),
     options: pickOptions(gaps, profile, 2),
     normalizing: NORMALIZING_LINES[0],
+    careCoverageLine: careLine(cares, coverage),
     compareToLastWeek: compare(previousLogs, logs, dates, lookup),
   }
 }
+
+/** 「你选过「骨骼」，这周记到奶或豆制品 2 天。」只报天数，不报够不够 */
+function careLine(
+  cares: CareTag[] | undefined,
+  coverage: Record<DietGroup, { days: number; times: number }>,
+): string | undefined {
+  if (!cares || cares.length === 0) return undefined
+  for (const tag of cares) {
+    const def = careDef(tag)
+    const hint = CARE_GROUP_HINT[tag]
+    if (!def || !hint) continue
+    const best = hint.groups
+      .map((g) => ({ g, days: coverage[g].days }))
+      .sort((a, b) => b.days - a.days)[0]
+    if (!best) continue
+    const labelMap: Partial<Record<DietGroup, string>> = {
+      dairy: '奶或豆制品',
+      soyNut: '奶或豆制品',
+      darkVegetable: '深色菜',
+      animalProtein: '肉蛋豆',
+      wholeGrain: '粗粮或薯类',
+      aquatic: '鱼虾',
+      vegetable: '蔬菜',
+    }
+    const name = labelMap[best.g] ?? GROUP_LABEL[best.g]
+    return `你选过「${def.label}」，这周记到${name} ${best.days} 天。`
+  }
+  return undefined
+}
+
 
 /** 只和自己上周比，且两周都必须充分 */
 function compare(

@@ -773,7 +773,7 @@ export function FoodDiary({
                             <div key={t}>{t}</div>
                           ))}
                           {obs.option && (
-                            <div className="text-[#8fbfff]">如果顺手：{obs.option.text}</div>
+                            <div className="text-[#8fbfff]">{obs.option.text}</div>
                           )}
                         </div>
                       )

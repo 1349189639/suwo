@@ -223,7 +223,16 @@ export async function bootstrapForUser(user: CloudUser): Promise<BootstrapResult
   return { data, migrated, source }
 }
 
+/**
+ * 场景画像只存本机（隐私政策里没写这类数据处理，就不上云）。
+ * 上云前统一剥掉，避免"注释说不同步、实际同步了"的不一致。
+ */
+export function stripLocalOnly(data: AppData): AppData {
+  const { eating: _eating, ...rest } = data
+  return rest as AppData
+}
+
 /** 把当前整档推送到云端（整档覆盖式；本地已是三向合并后的权威副本）。 */
 export async function pushToCloud(user: CloudUser, data: AppData): Promise<void> {
-  await saveDoc(user.uid, data)
+  await saveDoc(user.uid, stripLocalOnly(data))
 }

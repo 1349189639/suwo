@@ -87,3 +87,16 @@ export function careScore(food: { name: string; tags: string[] }, id: CareTag): 
   if (def.prefer.test(hay)) return 1
   return 0
 }
+
+/**
+ * 关注点 → 相关食物组 + 一句中性知识。
+ * 只说「这两者相关」，不说「你该多吃 / 达标 / 不足」。
+ */
+export const CARE_GROUP_HINT: Record<CareTag, { groups: import('./types').DietGroup[]; hint: string }> = {
+  digest: { groups: ['wholeGrain', 'vegetable'], hint: '膳食纤维主要来自全谷和蔬菜。' },
+  cardio: { groups: ['vegetable', 'aquatic', 'wholeGrain'], hint: '蔬菜、鱼虾、全谷是这一关注点里常提到的几组。' },
+  liver: { groups: ['vegetable', 'aquatic', 'wholeGrain'], hint: '这一关注点常提到蔬菜、鱼虾和全谷。' },
+  bone: { groups: ['dairy', 'soyNut'], hint: '钙的主要来源是奶和豆制品。' },
+  iron: { groups: ['animalProtein', 'darkVegetable'], hint: '铁和维生素C 常在同一餐里一起出现。' },
+  sugar: { groups: ['wholeGrain', 'vegetable'], hint: '全谷和蔬菜的纤维通常比精制米面多。' },
+}

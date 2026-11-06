@@ -14,6 +14,7 @@ import { latestWeight, bodyState } from '../domain/day'
 import { addDays, daysBetween, todayKey } from '../domain/date'
 import { defaultLook } from '../domain/look'
 import { DEFAULT_EATING_PROFILE } from '../domain/types'
+import { ABOUT_REVIEW, WEEK_DISCLAIMER } from '../data/adviceCopy'
 import { CARE_TAGS, careDef } from '../domain/care'
 import type { CareTag } from '../domain/types'
 import {
@@ -318,10 +319,32 @@ export function ProfileScreen({
                 label="调理关注"
                 value={
                   goal?.cares && goal.cares.length > 0
-                    ? goal.cares.map((c) => careDef(c)?.label ?? c).join(' · ')
+                    ? goal.cares
+                        .map((c) => {
+                          const d = careDef(c)
+                          return d ? `${d.label}（${d.subtitle}）` : c
+                        })
+                        .join(' · ')
                     : '未选'
                 }
               />
+              {goal?.cares && goal.cares.length > 0 && (
+                <div className="space-y-1.5 rounded-xl bg-surface2/40 p-2.5">
+                  {goal.cares.map((c) => {
+                    const d = careDef(c)
+                    if (!d) return null
+                    return (
+                      <div key={c} className="text-[10.5px] leading-4 text-muted/70">
+                        <span className="text-muted">{d.label}：</span>
+                        {d.basis}
+                      </div>
+                    )
+                  })}
+                  <div className="text-[9.5px] leading-4 text-muted/45">
+                    调理是膳食倾向建议，不替代治疗；有明确疾病请遵医嘱。
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="space-y-3">
@@ -466,6 +489,17 @@ export function ProfileScreen({
           </div>
           <p className="text-[10px] leading-4 text-muted/45">
             记录饮食如果让你紧张或焦虑，或有进食障碍史，建议关掉评价并咨询专业人士。本功能不是医学营养评估，不用于诊断。
+          </p>
+        </Card>
+      </div>
+
+      <div className="mt-4">
+        <SectionTitle>关于评价</SectionTitle>
+        <Card className="space-y-2">
+          <p className="text-[11.5px] leading-5 text-muted">{ABOUT_REVIEW}</p>
+          <p className="text-[10.5px] leading-4 text-muted/55">{WEEK_DISCLAIMER}</p>
+          <p className="text-[10.5px] leading-4 text-muted/55">
+            营养知识点只讲一组食物里常有什么、在哪能碰到；不判断你缺不缺，也不给补充建议。
           </p>
         </Card>
       </div>

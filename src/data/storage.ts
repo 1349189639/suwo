@@ -312,11 +312,23 @@ function normalizeEating(input: unknown): EatingProfile {
   }
 }
 
+/** 场景画像单独存一份：它不上云，但退出登录/切换账号不该丢 */
+const EATING_KEY = 'suwo:eating:v1'
+
 export function loadData(): AppData {
   try {
     const raw = localStorage.getItem(storageKey())
     if (!raw) return emptyData()
-    return normalize(JSON.parse(raw))
+    const data = normalize(JSON.parse(raw))
+    const mirror = localStorage.getItem(EATING_KEY)
+    if (mirror && !data.eating) {
+      try {
+        data.eating = normalizeEating(JSON.parse(mirror))
+      } catch {
+        /* 镜像损坏就当没有 */
+      }
+    }
+    return data
   } catch {
     return emptyData()
   }
@@ -325,6 +337,7 @@ export function loadData(): AppData {
 export function saveData(data: AppData): void {
   try {
     localStorage.setItem(storageKey(), JSON.stringify(data))
+    if (data.eating) localStorage.setItem(EATING_KEY, JSON.stringify(data.eating))
   } catch (err) {
     console.error('保存失败', err)
   }

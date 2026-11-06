@@ -1,16 +1,14 @@
-import { ESTIMATE_NOTE } from '../data/adviceCopy'
 import { pickOption, type ActionOption } from './adviceOptions'
-import { GROUP_LABEL, resolveGroups } from './dietGroups'
+import { resolveGroups } from './dietGroups'
 import type { DietGroup, EatingProfile, FoodLog, FoodItem, Meal } from './types'
 
 export interface MealObservation {
   meal: Meal
   present: DietGroup[]
-  /** 中性观察，最多 2 条 */
+  /** 中性观察，最多 2 条；用用户自己记下的食物名说话 */
   noted: string[]
   /** 至多 1 个可选动作 */
   option?: ActionOption
-  estimateNote: string
   /** 用户关闭评价 / 数据不足 → 只显示记录 */
   skipped: boolean
 }
@@ -27,41 +25,28 @@ export function buildMealObservation(
   lookup?: (name: string) => FoodItem | undefined,
 ): MealObservation {
   const mine = logs.filter((l) => l.meal === meal)
-  const base: MealObservation = {
-    meal,
-    present: [],
-    noted: [],
-    estimateNote: ESTIMATE_NOTE,
-    skipped: true,
-  }
+  const base: MealObservation = { meal, present: [], noted: [], skipped: true }
 
   if (!profile.reviewEnabled) return base
   if (mine.length === 0) return base
 
   const present = [...new Set(mine.flatMap((l) => resolveGroups(l, lookup)))]
+  const names = mine.slice(0, 3).map((l) => l.name)
+  const more = mine.length > 3 ? ` 等 ${mine.length} 样` : ''
+  const opening = `这顿记了${names.join('、')}${more}`
+
   if (present.length === 0) {
-    return { ...base, noted: [`这一餐记了 ${mine.length} 条，暂时看不出搭配`] }
+    return { ...base, noted: [opening] }
   }
 
   const has = (g: DietGroup) => present.includes(g)
-  const noted: string[] = []
+  const noted: string[] = [opening]
 
   if (meal !== 'snack') {
-    if (has('grain') && has('animalProtein') && !has('vegetable')) {
-      noted.push('这一餐记录到主食和蛋白，没看到蔬菜')
-    } else if (has('vegetable') && has('darkVegetable')) {
-      noted.push('这一餐有蔬菜，其中记到了深色菜')
-    } else if (has('vegetable')) {
-      noted.push('这一餐有蔬菜')
-    } else if (!has('grain')) {
-      noted.push('这一餐没记录到主食')
-    }
-    if (!has('animalProtein') && !has('soyNut') && noted.length < 2) {
-      noted.push('这一餐没记录到肉蛋豆')
-    }
-    if (!has('vegetable') && noted.length < 2) noted.push('这一餐没记录到蔬菜')
-  } else {
-    noted.push(`这一餐记了 ${mine.length} 条`)
+    if (!has('vegetable')) noted.push('这顿没记到蔬菜')
+    else if (has('darkVegetable')) noted.push('里面有深色菜')
+    else if (!has('grain')) noted.push('这顿没记到主食')
+    else if (!has('animalProtein') && !has('soyNut')) noted.push('这顿没记到肉蛋豆')
   }
 
   // 只有结构上明显缺一块才给一个可选动作；早/加餐不给
@@ -75,16 +60,5 @@ export function buildMealObservation(
     }
   }
 
-  return {
-    meal,
-    present,
-    noted: noted.slice(0, 2),
-    option,
-    estimateNote: ESTIMATE_NOTE,
-    skipped: false,
-  }
-}
-
-export function presentLabels(present: DietGroup[]): string[] {
-  return present.map((g) => GROUP_LABEL[g])
+  return { meal, present, noted: noted.slice(0, 2), option, skipped: false }
 }

@@ -23,10 +23,12 @@ describe('食物记忆点', () => {
     expect(foodHighlights('菠菜').length).toBeLessThanOrEqual(3)
   })
 
-  it('每个记忆点都写全了四种目标的说明', () => {
+  it('每个记忆点都写全了是什么与含量参考', () => {
     for (const [key, info] of Object.entries(HIGHLIGHT_INFO)) {
       expect(info.what.length, key).toBeGreaterThan(4)
       expect(info.amount.length, key).toBeGreaterThan(4)
+      // v3.1：中性知识点（碳水 / 钠 / 添加糖等）不带目标绑定说明，有则必须写全四类
+      if (!info.benefit) continue
       for (const g of ['lose', 'cut', 'bulk', 'maintain'] as const) {
         expect(info.benefit[g].length, `${key}/${g}`).toBeGreaterThan(2)
       }

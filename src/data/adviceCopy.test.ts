@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ABOUT_REVIEW,
   ADVICE_TEMPLATES,
   BANNED_WORDS,
-  ESTIMATE_NOTE,
   NORMALIZING_LINES,
   WEEK_DISCLAIMER,
   filterByBudget,
@@ -11,7 +11,7 @@ import {
 const ALL_TEXT = [
   ...ADVICE_TEMPLATES.map((t) => t.text),
   ...NORMALIZING_LINES,
-  ESTIMATE_NOTE,
+  ABOUT_REVIEW,
   WEEK_DISCLAIMER,
 ]
 
@@ -29,7 +29,7 @@ describe('文案准入：禁用词', () => {
   })
 })
 
-describe('文案准入：每条建议的五道关', () => {
+describe('文案准入：五道关', () => {
   it('有依据编号、有成本标注、文案不为空', () => {
     for (const t of ADVICE_TEMPLATES) {
       expect(t.source.length).toBeGreaterThan(1)
@@ -54,5 +54,19 @@ describe('文案准入：每条建议的五道关', () => {
   it('每条模板的 id 唯一', () => {
     const ids = ADVICE_TEMPLATES.map((t) => t.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('结尾不再全是同一组缓和词（就行/就好/不用/也没关系/也不影响 合计 ≤ 2）', () => {
+    const soft = ['就行', '就好', '不用', '也没关系', '也不影响']
+    let count = 0
+    for (const t of ADVICE_TEMPLATES) {
+      for (const w of soft) if (t.text.includes(w)) count += 1
+    }
+    expect(count).toBeLessThanOrEqual(2)
+  })
+
+  it('没有「如果顺手」前缀残留', () => {
+    for (const t of ADVICE_TEMPLATES) expect(t.text.includes('如果顺手')).toBe(false)
+    expect(ABOUT_REVIEW.includes('如果顺手')).toBe(false)
   })
 })

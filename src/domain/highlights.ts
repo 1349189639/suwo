@@ -222,3 +222,22 @@ export function foodHighlights(name: string, tags: string[] = []): string[] {
 export function highlightInfo(key: string): HighlightInfo | null {
   return HIGHLIGHT_INFO[key] ?? null
 }
+
+/* ---------------- v3.1：中性知识点（只讲「是什么 / 常见含量」，不讲功效） ---------------- */
+
+const NEUTRAL: Record<string, { what: string; amount: string }> = {
+  碳水: { what: '米饭、面条里的主要供能成分', amount: '熟米饭每 100g 约 25–30g' },
+  添加糖: { what: '配料表里额外加进去的糖，不含水果的天然糖', amount: '看包装「碳水化合物」一栏，配料表里常有白砂糖、果葡糖浆' },
+  钠: { what: '盐和含钠调味料里的成分', amount: '加工食品标签上会标 mg，每 100g 超过 600mg 属于偏高' },
+  维生素B12: { what: '主要来自动物性食物，参与红细胞生成与神经功能', amount: '肉类、蛋、奶每 100g 约 0.5–2μg' },
+  饱和脂肪: { what: '常温下容易凝固的脂肪，多来自动物油与棕榈油', amount: '配料表里出现猪油、黄油、棕榈油即为来源' },
+}
+
+Object.assign(HIGHLIGHT_INFO, NEUTRAL as Record<string, HighlightInfo>)
+
+/** 中性知识查询：只返回 what / amount，永远不返回 benefit */
+export function nutrientKnowledge(key: string): { what: string; amount: string } | null {
+  const info = HIGHLIGHT_INFO[key]
+  if (!info) return null
+  return { what: info.what, amount: info.amount }
+}

@@ -65,17 +65,41 @@ export const GROUP_LABEL: Record<DietGroup, string> = {
   ultraProcessed: '深加工',
 }
 
-/** 知识卡片：解释这个食物组是什么、常见来源（中性描述，不做好坏评判） */
-export const GROUP_INFO: Record<DietGroup, { what: string; sources: string }> = {
-  grain: { what: '提供碳水的谷薯主食，是主要能量来源', sources: '米饭、面条、馒头、红薯、玉米' },
-  wholeGrain: { what: '保留麸皮或胚芽的谷物与薯类，纤维比精制米面多', sources: '糙米、燕麦、全麦面包、红薯、玉米' },
-  vegetable: { what: '提供膳食纤维、钾和多种维生素', sources: '叶菜、瓜茄类、菌菇、海藻' },
-  darkVegetable: { what: '深绿色、红橙色或紫黑色的蔬菜，胡萝卜素通常更高', sources: '西兰花、菠菜、胡萝卜、番茄、紫甘蓝' },
-  fruit: { what: '提供维生素 C、钾和天然糖分', sources: '苹果、橙子、香蕉、猕猴桃、莓类' },
-  animalProtein: { what: '提供优质蛋白与铁、锌、维生素 B12', sources: '鸡蛋、瘦肉、禽肉、鱼虾' },
-  aquatic: { what: '鱼虾类，提供优质蛋白与 n-3 脂肪酸', sources: '鲈鱼、带鱼、三文鱼、虾、贝类' },
-  dairy: { what: '钙和优质蛋白的主要来源', sources: '牛奶、酸奶、奶酪' },
-  soyNut: { what: '植物蛋白、钙与不饱和脂肪', sources: '豆腐、豆浆、豆干、核桃、花生' },
-  sugaryDrink: { what: '含添加糖的饮料，能量密度高、饱腹感弱', sources: '可乐、奶茶、果汁饮料' },
-  ultraProcessed: { what: '深加工或油炸食品，油盐糖通常较高', sources: '火腿肠、培根、薯片、方便面、炸物' },
+/** 知识卡片：是什么、常见来源、这一组里常碰到什么（中性描述，不做好坏评判） */
+export interface GroupInfo {
+  what: string
+  sources: string
+  tip: string
+}
+
+export const GROUP_INFO: Record<DietGroup, GroupInfo> = {
+  grain: { what: '提供碳水的谷薯主食，是主要能量来源', sources: '米饭、面条、馒头、红薯、玉米', tip: '米饭、面条、馒头都算这一组，食堂和外卖里最常碰到。' },
+  wholeGrain: { what: '保留麸皮或胚芽的谷物与薯类，纤维比精制米面多', sources: '糙米、燕麦、全麦面包、红薯、玉米', tip: '玉米、红薯、燕麦、糙米，早餐摊和米饭窗口旁边常有。' },
+  vegetable: { what: '提供膳食纤维、钾和多种维生素', sources: '叶菜、瓜茄类、菌菇、海藻', tip: '叶菜、瓜茄、菌菇都算，食堂素菜窗口一般一两块钱一份。' },
+  darkVegetable: { what: '深绿色、红橙色或紫黑色的蔬菜，胡萝卜素通常更高', sources: '西兰花、菠菜、胡萝卜、番茄、紫甘蓝', tip: '西兰花、菠菜、胡萝卜、番茄，颜色越深通常胡萝卜素越多。' },
+  fruit: { what: '提供维生素 C、钾和天然糖分', sources: '苹果、橙子、香蕉、猕猴桃、莓类', tip: '香蕉、橘子按个卖，便利店和水果摊都能单买。' },
+  animalProtein: { what: '提供优质蛋白与铁、锌、维生素 B12', sources: '鸡蛋、瘦肉、禽肉、鱼虾', tip: '鸡蛋、瘦肉、鱼虾、豆腐，食堂里最常见的是鸡蛋和豆制品。' },
+  aquatic: { what: '鱼虾类，提供优质蛋白与 n-3 脂肪酸', sources: '鲈鱼、带鱼、三文鱼、虾、贝类', tip: '清蒸鱼、虾仁套餐、贝类汤都算这一组。' },
+  dairy: { what: '钙和优质蛋白的主要来源', sources: '牛奶、酸奶、奶酪', tip: '牛奶、酸奶、奶酪，便利店一盒通常两三块。' },
+  soyNut: { what: '植物蛋白、钙与不饱和脂肪', sources: '豆腐、豆浆、豆干、核桃、花生', tip: '豆腐、豆浆、豆干、坚果小包，宿舍里也能常温放。' },
+  sugaryDrink: { what: '含添加糖的饮料，能量密度高、饱腹感弱', sources: '可乐、奶茶、果汁饮料', tip: '可乐、奶茶、果汁饮料都算这一组，标签上的「碳水化合物」能看到糖。' },
+  ultraProcessed: { what: '深加工或油炸食品，油盐糖通常较高', sources: '火腿肠、培根、薯片、方便面、炸物', tip: '火腿肠、薯片、方便面、炸物，配料表通常比较长。' },
+}
+
+/**
+ * 这一组里常有的营养素（只讲「有什么」，不表示用户缺不缺、不评价吃得好不好）。
+ * key 必须能在 HIGHLIGHT_INFO 里查到，单测会校验。
+ */
+export const GROUP_NUTRIENTS: Record<DietGroup, string[]> = {
+  grain: ['碳水', 'B族维生素'],
+  wholeGrain: ['膳食纤维', 'B族维生素', '镁'],
+  vegetable: ['膳食纤维', '钾', '叶酸'],
+  darkVegetable: ['维生素A', '叶酸', '维生素C'],
+  fruit: ['维生素C', '钾'],
+  animalProtein: ['优质蛋白', '铁', '锌', '维生素B12'],
+  aquatic: ['优质蛋白', 'Omega-3', '碘'],
+  dairy: ['钙', '优质蛋白'],
+  soyNut: ['钙', '优质蛋白', '维生素E'],
+  sugaryDrink: ['添加糖'],
+  ultraProcessed: ['钠', '饱和脂肪'],
 }

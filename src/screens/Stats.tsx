@@ -19,7 +19,7 @@ export function Stats() {
   const week = summarizeWeek(data)
   const targets = targetsFor(data)
   const spirit = currentSpirit(data)
-  const review = buildWeekReview(data.foodLogs, data.eating ?? DEFAULT_EATING_PROFILE, todayKey())
+  const review = buildWeekReview(data.foodLogs, data.eating ?? DEFAULT_EATING_PROFILE, todayKey(), undefined, undefined, data.goal?.cares)
   const streak = currentStreak(data)
 
   const weight = latestWeight(data)
@@ -79,11 +79,19 @@ export function Stats() {
           <span className="text-[12px] text-muted">这周记录到</span>
           <span className="text-[10px] text-muted/45">{review.window.loggedDays}/7 天有记录</span>
         </div>
+        {review.normalizing && (
+          <div className="text-[10.5px] leading-4 text-muted/50">{review.normalizing}</div>
+        )}
         {review.observations.map((t) => (
           <div key={t} className="text-[12px] leading-5 text-muted">
             {t}
           </div>
         ))}
+        {review.careCoverageLine && (
+          <div className="rounded-xl bg-accent/8 px-2.5 py-2 text-[11.5px] leading-5 text-ink">
+            {review.careCoverageLine}
+          </div>
+        )}
         {review.compareToLastWeek && (
           <div className="text-[11px] leading-5 text-muted/70">
             上周记到鱼虾 {review.compareToLastWeek.lastWeek} 次，这周 {review.compareToLastWeek.thisWeek} 次。
@@ -98,7 +106,6 @@ export function Stats() {
             ))}
           </div>
         )}
-        <p className="text-[9.5px] leading-4 text-muted/40">{review.disclaimer}</p>
       </Card>
 
       {(() => {

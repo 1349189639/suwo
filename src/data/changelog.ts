@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '0.9.5'
+export const CURRENT_VERSION = '0.9.6'
 
 export interface ChangelogEntry {
   version: string
@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 /** 最新的排在最前面 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.6',
+    date: '2026-11-06',
+    title: '营养知识点回来了 · 调理关注点更清楚 · 建议更像人话',
+    items: [
+      '点开食物组能看到这一组里常有的营养素（维生素C、钙、铁这些），只讲它是什么、常见含量多少',
+      '调理关注点在「我的」里能看到每一条的依据，不用再猜为什么这么选',
+      '选过关注点的话，食物组卡片和周报会多一行相关提示，只说有关联，不判断你有没有吃够',
+      '日记里的建议重写了：给位置和价格，不再说「也不用」「也没关系」这类来回找补的话',
+      '日记每餐的观察改成直接念你记下的食物名，比如「这顿记了米饭、鸡蛋」',
+      '所有免责说明收进「我的 → 关于评价」一处，日记和周报里不再到处出现',
+    ],
+  },
   {
     version: '0.9.5',
     date: '2026-11-06',

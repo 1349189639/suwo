@@ -1,6 +1,8 @@
 import { useStore } from '../data/store'
+import { findFoodByName } from '../data/foods'
 import { foodHighlights } from '../domain/highlights'
 import { foodWarnings } from '../domain/warnings'
+import type { FoodCategory } from '../domain/types'
 import { cx } from './ui'
 
 /**
@@ -12,6 +14,7 @@ export function HighlightChips({
   tags,
   fat,
   kcal,
+  category,
   className,
 }: {
   name: string
@@ -20,11 +23,16 @@ export function HighlightChips({
   fat?: number
   /** 这一份的热量（可选） */
   kcal?: number
+  /** 分类（可选）；不传就按名字回查食物库 */
+  category?: FoodCategory
   className?: string
 }) {
   const showHighlight = useStore((s) => s.showHighlight)
-  const good = foodHighlights(name, tags)
-  const warn = foodWarnings({ name, tags, fat, kcal })
+  const known = findFoodByName(name)
+  const cat = category ?? known?.category
+  const allTags = tags ?? known?.tags ?? []
+  const good = foodHighlights(name, allTags)
+  const warn = foodWarnings({ name, tags: allTags, category: cat, fat, kcal })
   if (good.length === 0 && warn.length === 0) return null
   return (
     <div className={cx('flex flex-wrap gap-1', className)}>

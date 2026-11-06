@@ -121,12 +121,24 @@ describe('红色提醒', () => {
     expect(foodWarnings({ name: '火腿肠', tags: ['加工肉 高钠'] })).toContain('w:钠偏高')
   })
 
-  it('脂肪供能超过 45% 会红', () => {
-    expect(foodWarnings({ name: '炸鸡', tags: [], fat: 30, kcal: 400 })).toContain('w:油脂偏高')
+  it('油炸复合菜才提示「油偏多」', () => {
+    expect(foodWarnings({ name: '炸鸡', tags: [], fat: 30, kcal: 400 })).toContain('w:油偏多')
+    expect(foodWarnings({ name: '红烧肉', tags: ['高油'], category: 'dish', fat: 40, kcal: 500 })).toContain('w:油偏多')
+  })
+
+  it('天然食材脂肪比例高也不提示（鸡蛋/牛奶/坚果）', () => {
+    expect(foodWarnings({ name: '水煮蛋', tags: [], category: 'protein', fat: 4.8, kcal: 72 })).toEqual([])
+    expect(foodWarnings({ name: '鸡蛋', tags: ['蛋'], category: 'protein', fat: 9.5, kcal: 144 })).toEqual([])
+    expect(foodWarnings({ name: '金典纯牛奶', tags: ['奶'], category: 'soy', fat: 3.6, kcal: 65 })).toEqual([])
+    expect(foodWarnings({ name: '核桃', tags: ['坚果'], category: 'nut', fat: 60, kcal: 650 })).toEqual([])
   })
 
   it('清淡蔬菜不红', () => {
-    expect(foodWarnings({ name: '西兰花', tags: [], fat: 0.4, kcal: 34 })).toEqual([])
+    expect(foodWarnings({ name: '西兰花', tags: [], category: 'veg', fat: 0.4, kcal: 34 })).toEqual([])
+  })
+
+  it('水果的天然糖不算添加糖', () => {
+    expect(foodWarnings({ name: '苹果', tags: ['水果'], category: 'fruit', fat: 0.4, kcal: 104 })).toEqual([])
   })
 
   it('最多两条，不刷屏', () => {

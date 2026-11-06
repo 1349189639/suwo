@@ -533,6 +533,13 @@ export function Home({
         )}
       </Card>
 
+      {day.intake.kcal > 300 && (day.intake.f * 9) / day.intake.kcal > 0.4 && (
+        <p className="mt-1.5 px-1 text-[10px] leading-4 text-[#ff8a9b]/85">
+          今天脂肪占到 {Math.round(((day.intake.f * 9) / day.intake.kcal) * 100)}%，比建议的 20–30% 偏高。
+          食堂不好控油很正常：下一餐选蒸、煮、白灼，菜在水里过一下、汤面撇掉浮油就行——看一天的总量，别为某一顿自责。
+        </p>
+      )}
+
       {/* 今日记录 */}
       <div className="mb-2 mt-4 flex items-end justify-between px-1">
         <h3 className="text-[13px] font-semibold tracking-wide text-muted">今天的记录</h3>

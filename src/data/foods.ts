@@ -458,6 +458,17 @@ export function countByCategory(category: FoodCategory): number {
   return FOODS.filter((f) => f.category === category).length
 }
 
+/** 按名字回查食物库（用于给记录行补分类，供红标签判断是否复合菜） */
+export function findFoodByName(name: string): FoodItem | undefined {
+  const n = name.trim()
+  if (!n) return undefined
+  return (
+    FOODS.find((f) => f.name === n) ??
+    FOODS.find((f) => n.startsWith(f.name)) ??
+    FOODS.find((f) => f.name.startsWith(n))
+  )
+}
+
 /** 按名称/分类粗略估算含水量（%）。用于扫码、AI、自定义等没有水分数据的来源。 */
 export function guessWaterLocal(name: string, category: FoodCategory): number | undefined {
   const byCat = WATER_BY_CATEGORY[category]

@@ -13,6 +13,7 @@ export function HighlightSheet() {
   const isWarn = Boolean(highlight?.startsWith('w:'))
   const label = highlight ? (isWarn ? highlight.slice(2) : highlight) : ''
   const info = highlight ? (isWarn ? warningInfo(highlight) : highlightInfo(highlight)) : null
+  const action = info && 'action' in info ? (info as { action: string }).action : ''
 
   return (
     <Sheet
@@ -45,9 +46,16 @@ export function HighlightSheet() {
             <div className="mt-1 text-[13px] leading-5 text-ink">{info.benefit[goalType]}</div>
           </div>
 
+          {isWarn && action && (
+            <div className="rounded-2xl bg-surface2/50 p-3.5">
+              <div className="text-[11px] text-muted">下一餐怎么改</div>
+              <div className="mt-1 text-[13px] leading-5">{action}</div>
+            </div>
+          )}
+
           {isWarn && (
             <p className="px-1 text-[10px] leading-4 text-muted/50">
-              钠、添加糖为估算值，用于提示强弱，不等于包装上的营养成分表。有明确疾病请遵医嘱。
+              钠、添加糖为估算值，用于提示强弱，不等于包装上的营养成分表。单餐吃重了不用自责，一天的总量更重要；有明确疾病请遵医嘱。
             </p>
           )}
         </div>

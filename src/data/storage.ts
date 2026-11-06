@@ -1,6 +1,7 @@
 import type {
   AppData,
   AvatarAction,
+  Consent,
   ExerciseLog,
   FoodCategory,
   FoodItem,
@@ -29,6 +30,7 @@ function storageKey(): string {
 export function emptyData(): AppData {
   return {
     schema: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     profile: null,
     goal: null,
     weights: [],
@@ -39,6 +41,9 @@ export function emptyData(): AppData {
     createdAt: new Date().toISOString(),
   }
 }
+
+/** 当前数据结构版本；新增字段时 +1 */
+export const CURRENT_SCHEMA_VERSION = 2
 
 function num(v: unknown, fallback = 0): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback
@@ -211,8 +216,43 @@ export function normalize(input: unknown): AppData {
     ? (src.avatarAction as AvatarAction)
     : undefined
 
+  // 同意记录：只认结构完整的字段，缺一个就当没同意过（老账号下次登录会补弹）
+  const consentRaw = obj(src.consent)
+  const consent: Consent | undefined =
+    typeof consentRaw.policyVersion === 'string' && consentRaw.policyVersion
+      ? {
+          policyVersion: consentRaw.policyVersion,
+          agreedAt: num(consentRaw.agreedAt, 0),
+        }
+      : undefined
+
+  // 未知顶层字段原样保留：以后加字段时，旧版客户端同步不会把新字段洗掉。
+  // 策略：认识的字段走上面的校验重建，不认识的整块透传（值不做校验）。
+  const KNOWN_KEYS = new Set([
+    'schema',
+    'schemaVersion',
+    'consent',
+    'profile',
+    'goal',
+    'weights',
+    'customFoods',
+    'foodLogs',
+    'exercises',
+    'steps',
+    'avatarAction',
+    'look',
+    'water',
+    'mealCosts',
+    'createdAt',
+  ])
+  const passthrough: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(src)) {
+    if (!KNOWN_KEYS.has(k)) passthrough[k] = v
+  }
+
   return {
     ...base,
+    ...(passthrough as Partial<AppData>),
     profile,
     goal,
     weights,
@@ -225,7 +265,9 @@ export function normalize(input: unknown): AppData {
     avatarAction,
     look: normalizeLook(src.look, profile?.gender ?? 'male'),
     createdAt: str(src.createdAt, base.createdAt),
-  }
+    schemaVersion: Math.max(1, num(src.schemaVersion, base.schemaVersion ?? 1)),
+    consent,
+  } as AppData
 }
 
 export function loadData(): AppData {
@@ -256,4 +298,24 @@ export function importJson(text: string): AppData {
 
 export function clearData(): void {
   localStorage.removeItem(storageKey())
+}
+
+/**
+ * 清掉这台设备上所有账号相关的本地缓存。
+ * 登出 / 删号时必须调：否则 A 退出后，B 在同一台设备上仍能从 localStorage 里翻到 A 的数据。
+ */
+export function clearAllAccountCaches(): void {
+  try {
+    const doomed: string[] = []
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (!key) continue
+      if (key.startsWith('suwo:cloud:') || key === LEGACY_KEY || key.startsWith(`${LEGACY_KEY}:`)) {
+        doomed.push(key)
+      }
+    }
+    for (const key of doomed) localStorage.removeItem(key)
+  } catch {
+    /* 隐私模式下 localStorage 可能不可用，忽略 */
+  }
 }

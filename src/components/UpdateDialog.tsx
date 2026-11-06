@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Button } from './ui'
 import { downloadAndInstall, type RemoteUpdate } from '../data/updater'
 
@@ -6,6 +6,8 @@ export function UpdateDialog({ update, onClose }: { update: RemoteUpdate; onClos
   const [phase, setPhase] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle')
   const [percent, setPercent] = useState(0)
   const [msg, setMsg] = useState('')
+
+  const manual = update.requiresManualReinstall === true
 
   const start = async () => {
     setPhase('downloading')
@@ -40,6 +42,22 @@ export function UpdateDialog({ update, onClose }: { update: RemoteUpdate; onClos
           ))}
         </ul>
 
+        {manual && (
+          <div className="px-5 pb-3">
+            <div className="rounded-2xl border border-accent/40 bg-accent/10 p-3 text-[12px] leading-5">
+              <div className="font-semibold text-accent">这次需要卸载重装一次</div>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-muted">
+                <li>先到「我的」确认云端同步已完成</li>
+                <li>卸载手机上的旧版本</li>
+                <li>用官方链接/二维码重新安装 v{update.version}</li>
+              </ol>
+              <div className="mt-1 text-[10.5px] text-muted/60">
+                签名换了，旧版无法直接覆盖安装；数据在云端，重装登录后会自动恢复。
+              </div>
+            </div>
+          </div>
+        )}
+
         {phase === 'downloading' && (
           <div className="px-5 pb-3">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface2">
@@ -65,12 +83,30 @@ export function UpdateDialog({ update, onClose }: { update: RemoteUpdate; onClos
         )}
 
         <div className="flex gap-2 px-5 pb-5">
-          <Button variant="soft" className="flex-1" onClick={onClose} disabled={phase === 'downloading'}>
-            {phase === 'done' ? '关闭' : '稍后再说'}
-          </Button>
-          <Button className="flex-1" onClick={() => void start()} disabled={phase === 'downloading'}>
-            {phase === 'downloading' ? '下载中…' : phase === 'done' ? '重新安装' : '立即更新'}
-          </Button>
+          {manual ? (
+            <>
+              <Button variant="soft" className="flex-1" onClick={onClose}>
+                稍后再说
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (update.apkUrl) window.open(update.apkUrl, '_system')
+                }}
+              >
+                打开下载链接
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="soft" className="flex-1" onClick={onClose} disabled={phase === 'downloading'}>
+                {phase === 'done' ? '关闭' : '稍后再说'}
+              </Button>
+              <Button className="flex-1" onClick={() => void start()} disabled={phase === 'downloading'}>
+                {phase === 'downloading' ? '下载中…' : phase === 'done' ? '重新安装' : '立即更新'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,19 @@
 apply plugin: 'com.android.application'
 
+// 正式签名材料：优先读 local.properties（已 gitignore），其次读环境变量。口令永远不进 git。
+def suwoProps = new Properties()
+def suwoPropsFile = rootProject.file('local.properties')
+if (suwoPropsFile.exists()) {
+    suwoPropsFile.withInputStream { suwoProps.load(it) }
+}
+def suwoValue = { String key, String envName, String fallback ->
+    (suwoProps.getProperty(key) ?: System.getenv(envName) ?: fallback)
+}
+def suwoStoreFile = suwoValue('suwo.storeFile', 'SUWO_KEYSTORE', '../signing/suwo-release.keystore')
+def suwoStorePassword = suwoValue('suwo.storePassword', 'SUWO_KEYSTORE_PASSWORD', '')
+def suwoKeyAlias = suwoValue('suwo.keyAlias', 'SUWO_KEY_ALIAS', 'suwo')
+def suwoKeyPassword = suwoValue('suwo.keyPassword', 'SUWO_KEY_PASSWORD', '')
+
 android {
     namespace = "app.suwo.fit"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +30,30 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (suwoStorePassword) {
+                storeFile rootProject.file("app/${suwoStoreFile}".toString())
+                storePassword suwoStorePassword
+                keyAlias suwoKeyAlias
+                keyPassword suwoKeyPassword
+                // 三种签名方案都显式打开：老机型吃 v1，Android 7+ v2，Android 9+ v3
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
     buildTypes {
         release {
+            // 没配 keystore 的机器退回 debug 签名并告警，避免配置阶段直接失败；
+            // 正式出包由 build-apk.ps1 保证使用 release 签名，并校验产物证书指纹。
+            if (suwoStorePassword) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn('WARN: release keystore not configured (local.properties / SUWO_* env) - falling back to debug signing')
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

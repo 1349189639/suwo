@@ -144,7 +144,21 @@ if (-not (Test-Path (Join-Path $projAndroid 'settings.gradle'))) { Fail "copy fa
 
 Step 7 "Write local.properties"
 $sdkEsc = $sdk.Replace('\', '\\')
-Set-Content -Path (Join-Path $projAndroid 'local.properties') -Value "sdk.dir=$sdkEsc" -Encoding ASCII
+# Signing passwords are not hardcoded here: copy the suwo.* keys from the project local.properties
+# (gitignored). The staging dir is rebuilt each run, so it must be re-applied or release falls back to debug signing.
+$lpText = "sdk.dir=$sdkEsc`r`n"
+$signingSrc = Join-Path $app 'android\local.properties'
+if (Test-Path $signingSrc) {
+    $suwoLines = @(Get-Content $signingSrc | Where-Object { $_ -match '^suwo\.' })
+    if ($suwoLines.Count -gt 0) {
+        $lpText += ($suwoLines -join "`r`n") + "`r`n"
+        Write-Host ("  signing: " + $suwoLines.Count + " keys copied")
+    } else {
+        Write-Host "  WARN: no suwo.* signing keys in app\android\local.properties" -ForegroundColor Yellow
+    }
+}
+[System.IO.File]::WriteAllText((Join-Path $projAndroid 'local.properties'), $lpText, [System.Text.Encoding]::ASCII)
+Write-Host ("  sdk.dir written: " + $lpText.StartsWith('sdk.dir='))
 
 Step 8 "Gradle build (first run downloads dependencies, 10-20 min)"
 if (-not (Test-Zip $gradleZip)) { Fail "gradle-8.14.3-all.zip missing" }
@@ -152,7 +166,7 @@ $env:GRADLE_USER_HOME = Join-Path $build 'gradle-home'
 $log = Join-Path $build 'build.log'
 
 Push-Location $projAndroid
-$output = & .\gradlew.bat assembleDebug --no-daemon --stacktrace --console=plain 2>&1
+$output = & .\gradlew.bat assembleRelease --no-daemon --stacktrace --console=plain 2>&1
 $code = $LASTEXITCODE
 Pop-Location
 
@@ -170,14 +184,43 @@ if ($code -ne 0) {
     Fail "gradle build failed"
 }
 
-$apk = Join-Path $projAndroid 'app\build\outputs\apk\debug\app-debug.apk'
+$apk = Join-Path $projAndroid 'app\build\outputs\apk\release\app-release.apk'
 Write-Host ""
 if (Test-Path $apk) {
-    $dest = Join-Path $root ("suwo-v0.1-" + (Get-Date -Format 'yyyyMMdd-HHmm') + ".apk")
+    # Version comes from build.gradle; output is named suwo-v{versionName}-code{versionCode}.apk
+    $gradleFile = Join-Path $projAndroid 'app\build.gradle'
+    $gradleText = Get-Content $gradleFile -Raw
+    $mName = [regex]::Match($gradleText, 'versionName\s+"([^"]+)"')
+    $mCode = [regex]::Match($gradleText, 'versionCode\s+(\d+)')
+    if (-not $mName.Success -or -not $mCode.Success) { Fail "cannot read versionName/versionCode from build.gradle" }
+    $versionName = $mName.Groups[1].Value
+    $versionCode = $mCode.Groups[1].Value
+    $dest = Join-Path $root ("suwo-v{0}-code{1}.apk" -f $versionName, $versionCode)
+
+    # The APK must be signed with the release cert: verify with apksigner and fail hard on mismatch
+    $apksigner = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
+    if (Test-Path $apksigner) {
+        $certOut = & cmd /c "`"$apksigner`" verify --print-certs `"$apk`"" 2>&1
+        $certLine = ($certOut | Where-Object { $_ -match 'SHA-256' } | Select-Object -First 1)
+        if (-not $certLine) { Fail "apksigner did not report a certificate: $certOut" }
+        # apksigner prints a bare 64-char hex digest (no colons)
+        $certSha = [regex]::Match($certLine, '[0-9a-fA-F]{64}').Value
+        $expected = '09:27:46:07:4E:C9:9D:27:46:DD:CF:9F:B3:40:9F:A5:A3:37:E6:46:DF:DD:18:46:0B:6E:B6:91:52:8B:F3:FE'
+        $expectedHex = $expected.Replace(':', '').ToUpper()
+        if (-not $certSha -or $certSha.ToUpper() -ne $expectedHex) {
+            Fail "APK signed with unexpected certificate: '$certSha' (expected $expectedHex)"
+        }
+        Write-Host ("  signing cert SHA-256: " + $certSha) -ForegroundColor Green
+    } else {
+        Write-Host "  WARN: apksigner not found, skipped signature check" -ForegroundColor Yellow
+    }
+
     Copy-Item $apk $dest -Force
+    $sha = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash
     Write-Host "SUCCESS - APK created:" -ForegroundColor Green
     Write-Host "  $dest" -ForegroundColor Green
+    Write-Host ("  bytes: " + (Get-Item $dest).Length + "  sha256: " + $sha)
     Write-Host "Next: run the send-to-phone script."
 } else {
-    Fail "gradle finished but app-debug.apk was not found"
+    Fail "gradle finished but app-release.apk was not found"
 }

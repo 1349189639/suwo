@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -50,8 +50,7 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <!-- 健康平台探测（仅探测版临时使用，正式上线前移除）：读取已安装健康类应用包名 -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- 健康平台探测：通过下方 <queries> 精确声明，不再申请 QUERY_ALL_PACKAGES -->
 
     <uses-feature
         android:name="android.hardware.camera"

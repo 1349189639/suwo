@@ -16,6 +16,35 @@ export interface VisionConfig {
 
 const KEY = 'fitpal:vision'
 
+/**
+ * 用户自己的 AI Key 只保存在内存里，不写 localStorage。
+ * 原因：localStorage 是明文，能被导出/备份拿走；插件式加密存储要新增原生依赖，
+ * 权衡后采用「仅本次运行有效、重启重新输入」的方案（设置页有说明）。
+ */
+let runtimeApiKey = ''
+
+/** 一次性迁移：老版本把 Key 明文存过 localStorage，读到就搬进内存并立刻抹掉明文。 */
+function migrateLegacyKey(): void {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return
+    const p = JSON.parse(raw) as Partial<VisionConfig>
+    if (typeof p.apiKey === 'string' && p.apiKey) runtimeApiKey = p.apiKey
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl : '',
+        model: typeof p.model === 'string' ? p.model : '',
+        apiKey: '',
+      }),
+    )
+  } catch {
+    /* 读不到就当没有旧数据 */
+  }
+}
+
+if (typeof localStorage !== 'undefined') migrateLegacyKey()
+
 export const VISION_PRESETS: { label: string; baseUrl: string; model: string; note?: string }[] = [
   {
     label: 'DeepSeek（deepseek-flash）',
@@ -63,20 +92,26 @@ export const DEFAULT_VISION: VisionConfig = {
 export function loadVisionConfig(): VisionConfig {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { ...DEFAULT_VISION }
+    if (!raw) return { ...DEFAULT_VISION, apiKey: runtimeApiKey }
     const p = JSON.parse(raw) as Partial<VisionConfig>
     return {
       baseUrl: typeof p.baseUrl === 'string' && p.baseUrl ? p.baseUrl : DEFAULT_VISION.baseUrl,
-      apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
+      apiKey: runtimeApiKey,
       model: typeof p.model === 'string' && p.model ? p.model : DEFAULT_VISION.model,
     }
   } catch {
-    return { ...DEFAULT_VISION }
+    return { ...DEFAULT_VISION, apiKey: runtimeApiKey }
   }
 }
 
 export function saveVisionConfig(c: VisionConfig): void {
-  localStorage.setItem(KEY, JSON.stringify(c))
+  // 只落盘非敏感配置；Key 只进内存
+  runtimeApiKey = c.apiKey.trim()
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ baseUrl: c.baseUrl, model: c.model, apiKey: '' }))
+  } catch {
+    /* 存不下不影响本次运行 */
+  }
 }
 
 export function hasVisionConfig(): boolean {

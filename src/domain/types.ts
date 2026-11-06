@@ -119,6 +119,13 @@ export interface ExerciseLog {
 
 export interface AppData {
   schema: 1
+  /**
+   * 数据结构版本。加字段时递增；读取方按此判断兼容策略：
+   * 旧版客户端读到更高版本的数据时，保留数据、不静默清空（详见 storage.normalize）。
+   */
+  schemaVersion?: number
+  /** 隐私政策同意记录，按政策版本区分；政策改版后会重新征得同意 */
+  consent?: Consent
   profile: Profile | null
   goal: Goal | null
   weights: WeightEntry[]
@@ -134,6 +141,13 @@ export interface AppData {
   /** 整餐花费，key = "YYYY-MM-DD:餐次"（不绑定具体食物） */
   mealCosts?: Record<string, number>
   createdAt: string
+}
+
+export interface Consent {
+  /** 同意的是哪一版政策（取自 PRIVACY_POLICY.updatedAt） */
+  policyVersion: string
+  /** 同意时间戳（毫秒） */
+  agreedAt: number
 }
 
 export const MEAL_LABEL: Record<Meal, string> = {

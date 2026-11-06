@@ -513,6 +513,18 @@ describe('存储归一化 · 计件单位', () => {
 describe('云端合并 mergeAppData', () => {
   const base = () => normalize({ schema: 1, createdAt: '2026-01-01' } as unknown) as AppData
 
+  it('隐私同意记录不会在合并时丢掉', () => {
+    const consent = { policyVersion: '2026-11-05', agreedAt: 1794000000000 }
+    // 只在本地有：云端还没有这条记录时也要保留
+    const local = { ...base(), consent }
+    expect(mergeAppData(local, base()).consent).toEqual(consent)
+    // 只在云端有：换设备登录时不用重新同意
+    expect(mergeAppData(base(), { ...base(), consent }).consent).toEqual(consent)
+    // 两边都有：取较新的
+    const newer = { policyVersion: '2026-11-05', agreedAt: 1794000009999 }
+    expect(mergeAppData(local, { ...base(), consent: newer }).consent).toEqual(newer)
+  })
+
   const log = (id: string, createdAt: number, name = '食物') =>
     ({
       id,

@@ -25,6 +25,7 @@ function checkPassword(pwd: string): string | null {
 export function Auth() {
   const cloudLogin = useStore((s) => s.cloudLogin)
   const cloudCompleteLogin = useStore((s) => s.cloudCompleteLogin)
+  const agreeConsent = useStore((s) => s.agreeConsent)
 
   const [mode, setMode] = useState<Mode>('password')
 
@@ -125,6 +126,8 @@ export function Auth() {
     try {
       await flowRef.current.verify(code.trim())
       await cloudCompleteLogin()
+      // 注册页已经勾过《隐私政策》，直接落一条同意记录，避免进来又弹一次
+      if (mode === 'register' && agreed) agreeConsent()
     } catch (e) {
       setError(explainError(e))
     } finally {

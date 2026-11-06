@@ -18,6 +18,10 @@ export interface RemoteUpdate {
   apkUrl?: string
   sizeMb?: number
   notes?: string[]
+  /** 冗余展示字段：新包签名证书 SHA-256（真正的校验在原生层） */
+  signerCertSha256?: string
+  /** true = 签名已换代，必须卸载重装，不能走应用内安装 */
+  requiresManualReinstall?: boolean
 }
 
 export interface NativeVersion {
@@ -36,6 +40,14 @@ export async function nativeVersion(): Promise<NativeVersion> {
   }
 }
 
+/**
+ * 换签名后，旧包（debug 签名时代，code<=3）无法覆盖安装新包，
+ * 必须走「同步 → 卸载 → 重装」的手动路径。纯函数，方便单测。
+ */
+export function needsManualReinstall(currentCode: number, targetCode: number): boolean {
+  return currentCode > 0 && currentCode <= 3 && targetCode >= 4
+}
+
 /** 有没有新版本；没有则返回 null */
 export async function checkUpdate(): Promise<RemoteUpdate | null> {
   if (!Capacitor.isNativePlatform()) return null
@@ -47,6 +59,8 @@ export async function checkUpdate(): Promise<RemoteUpdate | null> {
     const cur = await nativeVersion()
     const target = j.nativeCode ?? 0
     if (target <= cur.code) return null
+
+    if (needsManualReinstall(cur.code, target)) return { ...j, requiresManualReinstall: true }
     return j
   } catch {
     return null
@@ -80,5 +94,19 @@ export async function downloadAndInstall(
   if (!path) throw new Error('下载完成但没拿到文件路径')
 
   onProgress(100)
-  await Updater.install({ path })
+  try {
+    await Updater.install({ path })
+  } catch (e) {
+    // 原生层签名校验失败 / 系统安装器拒绝：给出人话，不要让用户只看到 "应用未安装"
+    const raw = e instanceof Error ? e.message : String(e)
+    if (/签名|signature|certificate/i.test(raw)) {
+      throw new Error(raw)
+    }
+    if (/未安装|INSTALL_FAILED|应用未安装/i.test(raw)) {
+      throw new Error(
+        '安装失败：可能是签名已升级或版本冲突。请先在「我的 → 同步」确认数据已上云，卸载旧版后重新安装。',
+      )
+    }
+    throw new Error(raw || '安装失败，请稍后再试')
+  }
 }

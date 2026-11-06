@@ -1,9 +1,11 @@
 package app.suwo.fit;
 
 import android.Manifest;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.webkit.PermissionRequest;
+import android.webkit.WebView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
@@ -22,7 +24,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(StepCounterPlugin.class);
         registerPlugin(HealthProbePlugin.class);
         registerPlugin(UpdaterPlugin.class);
+
+        // release 包一律关掉 WebView 远程调试（chrome://inspect 连不上）；
+        // 用 FLAG_DEBUGGABLE 判断，避免依赖 BuildConfig 生成开关。
+        boolean debuggable =
+                (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (!debuggable) {
+            WebView.setWebContentsDebuggingEnabled(false);
+        }
+
         super.onCreate(savedInstanceState);
+
+        // Capacitor 初始化时可能会再打开一次，这里兜底再关一遍
+        if (!debuggable) {
+            WebView.setWebContentsDebuggingEnabled(false);
+        }
 
         // 每次「版本号变化」时清一次 WebView 的 HTTP 缓存，并立即重新加载。
         // 背景：页面是远程托管的，WebView 会缓存 index.html，导致「部署了但用户还是旧版」。

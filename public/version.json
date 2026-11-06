@@ -1,10 +1,13 @@
-﻿{
-  "version": "1.2",
-  "date": "2026-10-31",
-  "nativeCode": 3,
-  "apkUrl": "https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.2-code3.apk",
-  "sizeMb": 14.5,
+{
+  "version": "1.3",
+  "date": "2026-11-06",
+  "nativeCode": 4,
+  "apkUrl": "https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.3-code4.apk",
+  "sizeMb": 13.5,
+  "signerCertSha256": "09:27:46:07:4E:C9:9D:27:46:DD:CF:9F:B3:40:9F:A5:A3:37:E6:46:DF:DD:18:46:0B:6E:B6:91:52:8B:F3:FE",
   "notes": [
-    "内部测试：仅更新版本号，验证 App 内检查更新、下载和安装链路"
+    "换成正式签名：旧版（1.2 / code3）需要先同步、卸载、再重装",
+    "新增手机号验证码注册与登录、隐私政策与同意记录",
+    "数据导出、删除账号、AI 识图 Key 不再明文落盘"
   ]
 }

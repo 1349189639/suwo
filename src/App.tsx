@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Sheet } from './components/ui'
 import { HighlightSheet } from './components/HighlightSheet'
+import { ConsentGate } from './components/ConsentGate'
+import { hasValidConsent } from './data/privacy'
 import { UpdateNotice } from './components/UpdateNotice'
 import { UpdateDialog } from './components/UpdateDialog'
 import { checkUpdate, type RemoteUpdate } from './data/updater'
@@ -107,6 +109,12 @@ export default function App() {
 
   if (!cloudUser) {
     return <Auth />
+  }
+
+  // 未同意当前版本隐私政策前，任何路径都进不了主界面
+  // （注册 / 密码登录 / 验证码登录 / 老账号统一走这一关）
+  if (!hasValidConsent(data.consent)) {
+    return <ConsentGate />
   }
 
   if (!data.profile || !data.goal) return <Onboarding />

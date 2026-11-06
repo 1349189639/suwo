@@ -152,6 +152,14 @@ export function mergeAppData(local: AppData | null, remote: AppData | null): App
   const water = mergeDict(L?.water, R?.water)
   const mealCosts = mergeDict(L?.mealCosts, R?.mealCosts)
 
+  // 同意记录：两边都有就取较新的；只要有一边同意过就保留（换设备登录不会重复问）
+  const consent = (() => {
+    const a = L?.consent
+    const b = R?.consent
+    if (a && b) return a.agreedAt >= b.agreedAt ? a : b
+    return a ?? b
+  })()
+
   return {
     ...base,
     profile,
@@ -165,6 +173,8 @@ export function mergeAppData(local: AppData | null, remote: AppData | null): App
     mealCosts,
     avatarAction: L?.avatarAction ?? R?.avatarAction,
     look: L?.look ?? R?.look,
+    consent,
+    schemaVersion: Math.max(base.schemaVersion ?? 1, L?.schemaVersion ?? 1, R?.schemaVersion ?? 1),
     createdAt: L?.createdAt ?? R?.createdAt ?? fallback.createdAt,
   }
 }

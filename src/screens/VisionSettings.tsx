@@ -44,15 +44,19 @@ export function VisionSettings() {
         <TextField value={cfg.model} onChange={(v) => set({ model: v })} placeholder="doubao-vision-pro-32k" />
       </Field>
 
-      <Field label="API Key" hint="只存本机">
+      <Field label="API Key" hint="只存在本次运行的内存里">
         <TextField value={cfg.apiKey} onChange={(v) => set({ apiKey: v })} placeholder="sk-..." />
       </Field>
+
+      <p className="px-1 text-[10px] leading-4 text-muted/50">
+        为了不让 Key 明文躺在手机上，它不会被保存：关掉 App 后需要重新填一次。服务商与模型名会记住。
+      </p>
 
       <Button
         className="w-full"
         onClick={() => {
           saveVisionConfig(cfg)
-          setToast(cfg.apiKey ? '已保存，拍照时可以自动识别了' : '已保存（还没填 Key）')
+          setToast(cfg.apiKey ? '已启用（本次运行有效，重启需重填）' : '已保存（还没填 Key）')
         }}
       >
         保存

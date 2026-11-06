@@ -4,7 +4,6 @@ import { Button, Card, Field, NumberInput, Pill, SectionTitle, Segmented, Sheet,
 import { explainError } from '../data/cloud.v2'
 import { useStore } from '../data/store'
 import type { SyncStatus } from '../data/sync'
-import { CloudCheck } from './CloudCheck'
 import { readStepsDebug, readHealthProbe, type StepDebug, type HealthProbeDebug } from '../data/steps'
 import { shareOrDownload, toXls } from '../data/export'
 import { nativeVersion } from '../data/updater'
@@ -61,7 +60,6 @@ export function ProfileScreen({
   const goal = data.goal
   const weight = latestWeight(data) ?? goal?.startWeightKg ?? 70
 
-  const [showCloud, setShowCloud] = useState(false)
   const [ver, setVer] = useState<{ code: number; name: string } | null>(null)
 
   useEffect(() => {
@@ -464,9 +462,6 @@ export function ProfileScreen({
               删除账号
             </Button>
           </div>
-          <Button variant="soft" className="mt-1 w-full" onClick={() => setShowCloud(true)}>
-            云连接自检（开发调试）
-          </Button>
           <Button
             variant="soft"
             className="mt-1 w-full"
@@ -514,8 +509,7 @@ export function ProfileScreen({
           >
             健康平台探测（开发调试）
           </Button>
-          {hcDbg && (
-            <div className="mt-1 rounded-xl bg-surface2/50 p-2 text-[10px] leading-4 text-muted/70">
+          {hcDbg && (            <div className="mt-1 rounded-xl bg-surface2/50 p-2 text-[10px] leading-4 text-muted/70">
               {!hcDbg.ok && <div className="text-danger">错误：{hcDbg.error}</div>}
               {hcDbg.data && (
                 <>
@@ -527,7 +521,6 @@ export function ProfileScreen({
               )}
             </div>
           )}
-          {showCloud && <CloudCheck onClose={() => setShowCloud(false)} />}
         </Card>
       </div>
 

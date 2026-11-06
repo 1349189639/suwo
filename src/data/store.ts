@@ -12,7 +12,16 @@ import type {
   Meal,
   Profile,
 } from '../domain/types'
-import { clearData, dedupeCustomFoods, emptyData, importJson, loadData, saveData, setActiveAccount } from './storage'
+import {
+  clearAllAccountCaches,
+  dedupeCustomFoods,
+  emptyData,
+  importJson,
+  loadData,
+  saveData,
+  setActiveAccount,
+} from './storage'
+import { PRIVACY_POLICY } from './privacy'
 import { seedDemoIfNeeded } from './demo'
 import * as cloud from './cloud.v2'
 import type { CloudUser } from './cloud.v2'
@@ -86,6 +95,8 @@ interface Store {
   cloudLogin: (account: string, password: string) => Promise<void>
   /** 验证码登录/注册已经拿到会话后，走同一套云端拉取与数据迁移 */
   cloudCompleteLogin: () => Promise<void>
+  /** 记录「已同意当前版本隐私政策」，会随 appdata 同步到云端 */
+  agreeConsent: () => void
   /** 退出云端登录并清掉本机离线副本。 */
   cloudLogout: () => Promise<void>
   cloudChangePassword: (oldPassword: string, newPassword: string) => Promise<void>
@@ -331,7 +342,8 @@ export const useStore = create<Store>((set, get) => {
         }
       }
 
-      clearData()
+      // 清空：本机所有账号缓存一并清掉，避免残留旧数据被下一次登录合并回来
+      clearAllAccountCaches()
       set({ data: empty, syncStatus: user ? 'synced' : 'idle' })
       if (user) writeLocalCache(user.uid, empty)
       markDirty(false)
@@ -373,23 +385,23 @@ export const useStore = create<Store>((set, get) => {
       await finishLogin(user)
     },
 
+    agreeConsent: () => {
+      commit({
+        ...get().data,
+        consent: { policyVersion: PRIVACY_POLICY.updatedAt, agreedAt: Date.now() },
+      })
+    },
+
     cloudLogout: async () => {
       try {
         await cloud.signOut()
       } catch (e) {
         console.warn('云端登出接口报错，本地仍清理会话', e)
       }
-      const user = get().cloudUser
-      if (user) {
-        try {
-          localStorage.removeItem(`suwo:cloud:${user.uid}`)
-        } catch {
-          /* 忽略 */
-        }
-      }
       markDirty(false)
       setActiveAccount(null)
-      clearData()
+      // 清掉这台设备上所有账号的本地缓存：否则 A 退出后 B 还能从 localStorage 翻到 A 的数据
+      clearAllAccountCaches()
       set({ cloudUser: null, data: emptyData(), syncStatus: 'idle' })
     },
 

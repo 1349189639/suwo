@@ -3,9 +3,16 @@
  * 2026-11-05 经运营者确认定稿：运营主体徐荣泽（个人）、联系方式仅邮箱、数据存储地中国上海。
  * 改这一个文件即可，界面不用动。
  */
+import type { Consent } from '../domain/types'
+
 export interface PolicySection {
   h: string
   p: string
+}
+
+/** 是否已同意「当前这一版」政策；改政策正文时把 updatedAt 一起改，老用户会被要求重新同意 */
+export function hasValidConsent(consent: Consent | undefined): boolean {
+  return Boolean(consent && consent.policyVersion === PRIVACY_POLICY.updatedAt)
 }
 
 export const PRIVACY_POLICY: {

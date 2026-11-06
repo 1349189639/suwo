@@ -93,7 +93,7 @@ function reasonFor(food: FoodItem, cares: CareTag[], slot: string): string {
   if (proteinShare > 0.3) bits.push(`蛋白密度高（${food.per100.p}g/100g）`)
   if ((food.per100.fiber ?? 0) >= 2) bits.push('纤维不错')
   if (fatShare < 0.2) bits.push('低脂')
-  if (slot === 'staples') bits.push('主食')
+  if (slot === 'staple') bits.push('主食')
   for (const c of cares) {
     const s = careScore(food, c)
     if (s > 0) bits.push(`符合${careLabel(c)}关注点`)

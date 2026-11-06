@@ -4,6 +4,7 @@ import type { Look } from '../domain/look'
 import { normalizeLook } from '../domain/look'
 import type {
   AppData,
+  EatingProfile,
   AvatarAction,
   ExerciseLog,
   FoodItem,
@@ -22,6 +23,7 @@ import {
   setActiveAccount,
 } from './storage'
 import { PRIVACY_POLICY } from './privacy'
+import { DEFAULT_EATING_PROFILE } from '../domain/types'
 import { seedDemoIfNeeded } from './demo'
 import * as cloud from './cloud.v2'
 import type { CloudUser } from './cloud.v2'
@@ -97,6 +99,8 @@ interface Store {
   cloudCompleteLogin: () => Promise<void>
   /** 记录「已同意当前版本隐私政策」，会随 appdata 同步到云端 */
   agreeConsent: () => void
+  /** 场景画像（v3）：只存本机，不同步云端 */
+  setEatingProfile: (patch: Partial<EatingProfile>) => void
   /** 退出云端登录并清掉本机离线副本。 */
   cloudLogout: () => Promise<void>
   cloudChangePassword: (oldPassword: string, newPassword: string) => Promise<void>
@@ -383,6 +387,14 @@ export const useStore = create<Store>((set, get) => {
       const user = await cloud.currentUser()
       if (!user) throw new Error('验证通过但没拿到登录状态，请重试一次')
       await finishLogin(user)
+    },
+
+    setEatingProfile: (patch: Partial<EatingProfile>) => {
+      const data = get().data
+      commit({
+        ...data,
+        eating: { ...(data.eating ?? DEFAULT_EATING_PROFILE), ...patch, answeredAt: new Date().toISOString() },
+      })
     },
 
     agreeConsent: () => {

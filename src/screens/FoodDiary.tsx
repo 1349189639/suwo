@@ -7,6 +7,8 @@ import { estimateFood } from '../data/vision'
 import { useStore } from '../data/store'
 import { addDays, formatCN, todayKey } from '../domain/date'
 import { HighlightChips } from '../components/HighlightChips'
+import { buildMealObservation } from '../domain/mealObservation'
+import { DEFAULT_EATING_PROFILE } from '../domain/types'
 import { guessFiberByName, guessWater } from '../domain/water'
 import { summarizeDay, targetsFor } from '../domain/day'
 import {
@@ -41,6 +43,7 @@ export function FoodDiary({
   onOpenVision: () => void
 }) {
   const data = useStore((s) => s.data)
+  const eating = data.eating ?? DEFAULT_EATING_PROFILE
   const customFoods = data.customFoods
   const addFoodLog = useStore((s) => s.addFoodLog)
   const removeFoodLog = useStore((s) => s.removeFoodLog)
@@ -761,7 +764,20 @@ export function FoodDiary({
                       <span>纤维 {m.fiber}g</span>
                       <span>水分 {m.waterMl}ml</span>
                     </div>
-                    <div className="text-[10px] leading-4 text-accent/80">{mealAdvice(m, m.meal, targets.kcal)}</div>
+                    {(() => {
+                      const obs = buildMealObservation(m.items, m.meal, eating)
+                      if (obs.skipped || obs.noted.length === 0) return null
+                      return (
+                        <div className="mt-1 space-y-0.5 text-[10px] leading-4 text-muted/70">
+                          {obs.noted.map((t) => (
+                            <div key={t}>{t}</div>
+                          ))}
+                          {obs.option && (
+                            <div className="text-[#8fbfff]">如果顺手：{obs.option.text}</div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
@@ -801,29 +817,3 @@ function FoodRow({ food, onClick }: { food: FoodItem; onClick: () => void }) {
 /** 按餐次定位给建议：加餐不该按正餐的标准要求蛋白 */
 const money = (n: number) => (n % 1 === 0 ? String(n) : n.toFixed(2))
 
-function mealAdvice(
-  m: { kcal: number; p: number; c: number; f: number; fiber: number },
-  meal: Meal,
-  dailyTarget: number,
-): string {
-  const fatShare = (m.f * 9) / Math.max(m.kcal, 1)
-  const share = m.kcal / Math.max(dailyTarget, 1)
-
-  if (meal === 'snack') {
-    if (m.kcal > 350) return '加餐偏多，控制在 200 kcal 内更合适'
-    if (fatShare > 0.55) return '这份加餐几乎全是脂肪，换水果或酸奶更好'
-    if (m.p >= 10) return '高蛋白加餐，选得不错'
-    if (m.fiber >= 2) return '有纤维的加餐，很合适'
-    return '这个量可以，注意别吃成第四餐'
-  }
-
-  const tips: string[] = []
-  const floor = meal === 'breakfast' ? 15 : meal === 'lunch' ? 22 : 18
-  if (m.p < floor) tips.push(`蛋白偏少，这一餐建议 ${floor}g 以上`)
-  if (meal !== 'breakfast' && m.fiber < 3) tips.push('纤维不足，配点蔬菜')
-  if (fatShare > (meal === 'dinner' ? 0.38 : 0.45)) tips.push('脂肪偏高，少油少炸')
-  if (meal === 'breakfast' && m.c < 30) tips.push('主食偏少，上午容易饿')
-  if (meal === 'dinner' && share > 0.4) tips.push('晚餐占全天偏多，尽量睡前 3 小时吃完')
-  if (tips.length === 0) return '搭配均衡，保持'
-  return tips.slice(0, 2).join(' · ')
-}

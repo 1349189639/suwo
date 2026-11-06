@@ -1,67 +1,67 @@
 import { useStore } from '../data/store'
 import { findFoodByName } from '../data/foods'
-import { foodHighlights } from '../domain/highlights'
-import { foodWarnings } from '../domain/warnings'
-import type { FoodCategory } from '../domain/types'
+import { GROUP_INFO, inferGroups } from '../domain/dietGroups'
+import type { DietGroup, FoodCategory } from '../domain/types'
 import { cx } from './ui'
 
 /**
- * 食物标签：绿色 = 记忆点（有什么好），红色 = 提醒（要注意什么）。
- * 点任何一个都会弹同一个说明层；点击不会触发外层的「编辑这条」。
+ * 中性信息标签（v3）：只说明「这条记录里有什么食物组」。
+ * 不再用红=坏 / 绿=好，也不对单条食物做质量判定；点击展开知识卡片。
  */
 export function HighlightChips({
   name,
   tags,
-  fat,
-  kcal,
   category,
   className,
 }: {
   name: string
   tags?: string[]
-  /** 这一份的脂肪克数（可选，用于判断脂肪供能比） */
+  /** v3 起不再参与判定，保留是为了兼容旧调用 */
   fat?: number
-  /** 这一份的热量（可选） */
   kcal?: number
-  /** 分类（可选）；不传就按名字回查食物库 */
   category?: FoodCategory
   className?: string
 }) {
   const showHighlight = useStore((s) => s.showHighlight)
   const known = findFoodByName(name)
-  const cat = category ?? known?.category
-  const allTags = tags ?? known?.tags ?? []
-  const good = foodHighlights(name, allTags)
-  const warn = foodWarnings({ name, tags: allTags, category: cat, fat, kcal })
-  if (good.length === 0 && warn.length === 0) return null
+  const groups: DietGroup[] =
+    known?.groups && known.groups.length > 0
+      ? known.groups
+      : inferGroups(name, known?.category ?? category ?? 'dish', tags ?? known?.tags ?? [])
+
+  if (groups.length === 0) return null
   return (
     <div className={cx('flex flex-wrap gap-1', className)}>
-      {good.map((k) => (
+      {groups.slice(0, 3).map((g) => (
         <button
-          key={k}
+          key={g}
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            showHighlight(k)
+            showHighlight('g:' + g)
           }}
-          className="rounded-full bg-accent/12 px-1.5 py-0.5 text-[9.5px] leading-3 text-accent/85 active:scale-95"
+          className="rounded-full bg-[#63a4ff]/12 px-1.5 py-0.5 text-[9.5px] leading-3 text-[#8fbfff] active:scale-95"
         >
-          {k}
-        </button>
-      ))}
-      {warn.map((k) => (
-        <button
-          key={k}
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            showHighlight(k)
-          }}
-          className="rounded-full bg-[#ff6b81]/14 px-1.5 py-0.5 text-[9.5px] leading-3 text-[#ff8a9b] active:scale-95"
-        >
-          {k.replace('w:', '')}
+          {GROUP_INFO[g] ? gLabel(g) : g}
         </button>
       ))}
     </div>
   )
+}
+
+function gLabel(g: DietGroup): string {
+  const map: Record<string, string> = {
+    grain: '主食',
+    wholeGrain: '全谷薯',
+    vegetable: '蔬菜',
+    darkVegetable: '深色菜',
+    fruit: '水果',
+    animalProtein: '肉蛋',
+    aquatic: '鱼虾',
+    dairy: '奶',
+    soyNut: '豆坚果',
+    sugaryDrink: '含糖饮料',
+    ultraProcessed: '深加工',
+  }
+  return map[g] ?? g
 }

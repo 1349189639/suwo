@@ -53,6 +53,50 @@ export interface Goal {
 /** 调理关注点：脾胃 / 心肺 / 肝 / 骨骼 / 气血 / 血糖 */
 export type CareTag = 'digest' | 'cardio' | 'liver' | 'bone' | 'iron' | 'sugar'
 
+/* ---------------- 场景画像（v3）：全部可跳过，只用于把建议落到用户做得到的地方 ---------------- */
+
+export type Cohort = 'student' | 'worker' | 'other'
+export type EatingContext = 'canteen' | 'delivery' | 'convenience' | 'home' | 'restaurant' | 'dorm' | 'other'
+export type BudgetLevel = 'tight' | 'normal' | 'flexible'
+export type Schedule = 'regular' | 'shift' | 'irregular'
+export type LogSource = 'manual' | 'barcode' | 'ai' | 'custom'
+
+/** 食物组：对齐《中国居民膳食指南(2022)》八准则，周层评价的最小单位 */
+export type DietGroup =
+  | 'grain'
+  | 'wholeGrain'
+  | 'vegetable'
+  | 'darkVegetable'
+  | 'fruit'
+  | 'animalProtein'
+  | 'aquatic'
+  | 'dairy'
+  | 'soyNut'
+  | 'sugaryDrink'
+  | 'ultraProcessed'
+
+export interface EatingProfile {
+  cohort: Cohort
+  mainContext: EatingContext
+  budgetLevel: BudgetLevel
+  hasKitchen: boolean
+  schedule: Schedule
+  /** 忌口 / 不吃；只用于过滤建议，不据此评判 */
+  avoid?: string[]
+  /** 「只看记录，不做评价」开关 */
+  reviewEnabled: boolean
+  answeredAt?: string
+}
+
+export const DEFAULT_EATING_PROFILE: EatingProfile = {
+  cohort: 'other',
+  mainContext: 'canteen',
+  budgetLevel: 'normal',
+  hasKitchen: false,
+  schedule: 'regular',
+  reviewEnabled: true,
+}
+
 export interface WeightEntry {
   date: string
   kg: number
@@ -87,6 +131,9 @@ export interface FoodItem {
   unitGrams?: number
   /** 扫码得到的商品条码，用来去重 */
   barcode?: string
+  /** 结构化食物组（v3）：判定依据，替代自由 tags */
+  groups?: DietGroup[]
+  processing?: 'minimal' | 'processed' | 'ultra'
   custom?: boolean
 }
 
@@ -106,6 +153,12 @@ export interface FoodLog {
   /** 这一餐花了多少钱 */
   cost?: number
   foodId?: string
+  /** 单条记录的就餐场景（覆盖画像里的默认值） */
+  context?: EatingContext
+  /** 记录来源：决定可信度；ai / custom 不参与精确判断 */
+  source?: LogSource
+  /** 食物组快照，避免食物库改动影响历史 */
+  groups?: DietGroup[]
   createdAt: number
 }
 
@@ -137,6 +190,8 @@ export interface AppData {
   schemaVersion?: number
   /** 隐私政策同意记录，按政策版本区分；政策改版后会重新征得同意 */
   consent?: Consent
+  /** 场景画像（v3）：只存本机，不同步云端；全部可跳过 */
+  eating?: EatingProfile
   profile: Profile | null
   goal: Goal | null
   weights: WeightEntry[]

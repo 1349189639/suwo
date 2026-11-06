@@ -13,6 +13,7 @@ import { exportJson } from '../data/storage'
 import { latestWeight, bodyState } from '../domain/day'
 import { addDays, daysBetween, todayKey } from '../domain/date'
 import { defaultLook } from '../domain/look'
+import { DEFAULT_EATING_PROFILE } from '../domain/types'
 import { CARE_TAGS, careDef } from '../domain/care'
 import type { CareTag } from '../domain/types'
 import {
@@ -50,6 +51,7 @@ export function ProfileScreen({
   const replaceData = useStore((s) => s.replaceData)
   const reset = useStore((s) => s.reset)
   const setToast = useStore((s) => s.setToast)
+  const setEatingProfile = useStore((s) => s.setEatingProfile)
 
   const cloudUser = useStore((s) => s.cloudUser)
   const syncStatus = useStore((s) => s.syncStatus)
@@ -61,6 +63,7 @@ export function ProfileScreen({
   const profile = data.profile!
   const goal = data.goal
   const weight = latestWeight(data) ?? goal?.startWeightKg ?? 70
+  const eating = data.eating ?? DEFAULT_EATING_PROFILE
 
   const [ver, setVer] = useState<{ code: number; name: string } | null>(null)
 
@@ -388,6 +391,86 @@ export function ProfileScreen({
       </div>
 
       <div className="mt-4">
+        <SectionTitle right={<span className="text-[10px] text-muted/50">可全部跳过</span>}>
+          吃饭场景
+        </SectionTitle>
+        <Card className="space-y-3">
+          <p className="text-[10.5px] leading-4 text-muted/55">
+            只用来把建议换成本场景做得到的说法，不同步云端；不填也能正常用。
+          </p>
+
+          <SceneRow
+            label="身份"
+            value={eating.cohort}
+            options={[
+              ['student', '学生'],
+              ['worker', '上班族'],
+              ['other', '其他'],
+            ]}
+            onPick={(v) => setEatingProfile({ cohort: v as never })}
+          />
+          <SceneRow
+            label="主要在哪吃"
+            value={eating.mainContext}
+            options={[
+              ['canteen', '食堂'],
+              ['delivery', '外卖'],
+              ['convenience', '便利店'],
+              ['home', '家里'],
+              ['restaurant', '餐馆'],
+              ['dorm', '宿舍'],
+            ]}
+            onPick={(v) => setEatingProfile({ mainContext: v as never })}
+          />
+          <SceneRow
+            label="预算"
+            value={eating.budgetLevel}
+            options={[
+              ['tight', '紧'],
+              ['normal', '正常'],
+              ['flexible', '宽裕'],
+            ]}
+            onPick={(v) => setEatingProfile({ budgetLevel: v as never })}
+          />
+          <SceneRow
+            label="作息"
+            value={eating.schedule}
+            options={[
+              ['regular', '规律'],
+              ['shift', '轮班'],
+              ['irregular', '不规律'],
+            ]}
+            onPick={(v) => setEatingProfile({ schedule: v as never })}
+          />
+
+          <div className="flex items-center justify-between rounded-xl bg-surface2/50 px-3 py-2.5">
+            <div className="min-w-0 pr-2">
+              <div className="text-[12.5px]">只看记录，不做评价</div>
+              <div className="mt-0.5 text-[10px] leading-4 text-muted/50">
+                打开后，日记与周报只显示记录，不给观察和建议。
+              </div>
+            </div>
+            <button
+              onClick={() => setEatingProfile({ reviewEnabled: !eating.reviewEnabled })}
+              className={`h-6 w-11 shrink-0 rounded-full transition ${
+                eating.reviewEnabled ? 'bg-accent/70' : 'bg-line'
+              }`}
+              aria-label="切换评价开关"
+            >
+              <span
+                className={`block h-5 w-5 rounded-full bg-white transition ${
+                  eating.reviewEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-[10px] leading-4 text-muted/45">
+            记录饮食如果让你紧张或焦虑，或有进食障碍史，建议关掉评价并咨询专业人士。本功能不是医学营养评估，不用于诊断。
+          </p>
+        </Card>
+      </div>
+
+      <div className="mt-4">
         <SectionTitle>每日额度怎么来的</SectionTitle>
         <Card className="space-y-2">
           <Row label="基础代谢 BMR" value={`${bmr} kcal`} />
@@ -685,6 +768,36 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
       <span className={`tabular text-[13px] ${accent ? 'font-semibold text-accent' : 'text-ink'}`}>
         {value}
       </span>
+    </div>
+  )
+}
+function SceneRow({
+  label,
+  value,
+  options,
+  onPick,
+}: {
+  label: string
+  value: string
+  options: [string, string][]
+  onPick: (v: string) => void
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] text-muted/70">{label}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map(([id, text]) => (
+          <button
+            key={id}
+            onClick={() => onPick(id)}
+            className={`rounded-full border px-2.5 py-1 text-[11.5px] ${
+              value === id ? 'border-accent/60 bg-accent/10 text-accent' : 'border-line text-muted'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -3,9 +3,11 @@ import { Card, SectionTitle } from '../components/ui'
 import { useStore } from '../data/store'
 import { spiritLabel } from '../domain/adherence'
 import { currentSpirit, currentStreak, latestWeight, monthCost, summarizeWeek, targetsFor } from '../domain/day'
+import { buildWeekReview } from '../domain/weekDiet'
+import { DEFAULT_EATING_PROFILE } from '../domain/types'
 import { formatCN, lastNDates, todayKey, weekdayShort } from '../domain/date'
 import { MEAL_LABEL, MEAL_ORDER } from '../domain/types'
-import { KCAL_PER_KG, calcTdee } from '../domain/nutrition'
+import { calcTdee } from '../domain/nutrition'
 
 interface Insight {
   tone: 'ok' | 'warn' | 'info'
@@ -17,6 +19,7 @@ export function Stats() {
   const week = summarizeWeek(data)
   const targets = targetsFor(data)
   const spirit = currentSpirit(data)
+  const review = buildWeekReview(data.foodLogs, data.eating ?? DEFAULT_EATING_PROFILE, todayKey())
   const streak = currentStreak(data)
 
   const weight = latestWeight(data)
@@ -54,7 +57,7 @@ export function Stats() {
 
       <Card>
         <div className="flex items-center gap-4">
-          <ScoreRing value={week.score ?? 0} label="自律" color="#3ddc97" />
+          <ScoreRing value={week.score ?? 0} label="依从" color="#3ddc97" />
           <div className="flex-1">
             <div className="text-[15px] font-semibold">{spiritLabel(spirit)}</div>
             <div className="mt-1 text-[12px] leading-5 text-muted">
@@ -66,9 +69,36 @@ export function Stats() {
         </div>
         {week.score === null && (
           <p className="mt-3 rounded-xl bg-surface2/60 p-2.5 text-[11px] leading-5 text-muted">
-            还没有任何记录。自律指数只在有记录的日子计入，忘记记录不会扣分。
+            还没有任何记录。这个分数只反映「记录依从度」，不是饮食质量分；忘记记录不会扣分。
           </p>
         )}
+      </Card>
+
+      <Card className="mt-4 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[12px] text-muted">这周记录到</span>
+          <span className="text-[10px] text-muted/45">{review.window.loggedDays}/7 天有记录</span>
+        </div>
+        {review.observations.map((t) => (
+          <div key={t} className="text-[12px] leading-5 text-muted">
+            {t}
+          </div>
+        ))}
+        {review.compareToLastWeek && (
+          <div className="text-[11px] leading-5 text-muted/70">
+            上周记到鱼虾 {review.compareToLastWeek.lastWeek} 次，这周 {review.compareToLastWeek.thisWeek} 次。
+          </div>
+        )}
+        {review.options.length > 0 && (
+          <div className="rounded-xl bg-surface2/50 p-2.5">
+            {review.options.map((o) => (
+              <div key={o.id} className="text-[11.5px] leading-5 text-[#8fbfff]">
+                {o.text}
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-[9.5px] leading-4 text-muted/40">{review.disclaimer}</p>
       </Card>
 
       {(() => {
@@ -227,26 +257,17 @@ function buildInsights(input: {
 
   if (avgProtein < targetProtein * 0.8) {
     out.push({
-      tone: 'warn',
-      text: `蛋白质日均 ${avgProtein}g，低于目标 ${targetProtein}g。补一个鸡蛋 + 一份鸡胸（约 40g 蛋白）就能补上。`,
+      tone: 'info',
+      text: `这周记到的蛋白质日均 ${avgProtein}g（按记录计）。`,
     })
   } else if (avgProtein >= targetProtein) {
-    const why =
-      goalType === 'cut'
-        ? '减脂期保住肌肉'
-        : goalType === 'lose'
-          ? '减肥期少掉肌肉'
-          : goalType === 'bulk'
-            ? '增肌'
-            : '维持体重'
-    out.push({ tone: 'ok', text: `蛋白质达标（日均 ${avgProtein}g），这对${why}很关键。` })
+    out.push({ tone: 'ok', text: `这周记到的蛋白质日均 ${avgProtein}g（按记录计）。` })
   }
 
   if (avgIntake > targetKcal * 1.08) {
-    const excess = Math.round((avgIntake - targetKcal) * 7)
     out.push({
       tone: 'warn',
-      text: `日均摄入 ${avgIntake} kcal，超出额度 ${Math.round(avgIntake - targetKcal)} kcal。按这节奏每周多出约 ${excess} kcal，相当于 ${(excess / KCAL_PER_KG).toFixed(2)} kg 脂肪。`,
+      text: `日均摄入 ${avgIntake} kcal，超出额度 ${Math.round(avgIntake - targetKcal)} kcal。按记录计，日均比额度多 ${Math.round(avgIntake - targetKcal)} kcal。`,
     })
   } else if (avgIntake < targetKcal * 0.8) {
     out.push({
@@ -261,14 +282,14 @@ function buildInsights(input: {
     const good = (wantDown && weightChange < 0) || (goalType === 'bulk' && weightChange > 0)
     out.push({
       tone: good ? 'ok' : 'warn',
-      text: `体重${dir} ${Math.abs(weightChange)} kg。${good ? '方向正确，保持当前缺口即可。' : '方向和目标不一致，先检查记录是否漏记。'}`,
+      text: `这周体重记录${dir} ${Math.abs(weightChange)} kg（只和你自己的前一次称重比较）。`,
     })
   }
 
   if (totalMinutes < 60) {
     out.push({
       tone: 'info',
-      text: `本周训练 ${totalMinutes} 分钟。建议每周 2–3 次力量训练 + 150 分钟中等强度有氧。`,
+      text: `这周记录到训练 ${totalMinutes} 分钟。`,
     })
   }
 

@@ -1,25 +1,28 @@
 import { Sheet } from './ui'
 import { useStore } from '../data/store'
-import { highlightInfo } from '../domain/highlights'
-import { warningInfo } from '../domain/warnings'
-import { GOAL_LABEL } from '../domain/types'
+import { GROUP_INFO, GROUP_LABEL } from '../domain/dietGroups'
+import { pickOption } from '../domain/adviceOptions'
+import type { DietGroup } from '../domain/types'
 
-/** 全局标签说明弹层：绿标签（营养记忆点）与红标签（提醒）共用这一个 */
+/** 食物组知识卡片：这是什么、常见来源、一个可选动作（由场景决定） */
 export function HighlightSheet() {
   const highlight = useStore((s) => s.highlight)
   const hideHighlight = useStore((s) => s.hideHighlight)
-  const goalType = useStore((s) => s.data.goal?.type ?? 'maintain')
+  const eating = useStore((s) => s.data.eating)
 
-  const isWarn = Boolean(highlight?.startsWith('w:'))
-  const label = highlight ? (isWarn ? highlight.slice(2) : highlight) : ''
-  const info = highlight ? (isWarn ? warningInfo(highlight) : highlightInfo(highlight)) : null
-  const action = info && 'action' in info ? (info as { action: string }).action : ''
+  const isGroup = Boolean(highlight?.startsWith('g:'))
+  const group = isGroup ? ((highlight as string).slice(2) as DietGroup) : null
+  const info = group ? GROUP_INFO[group] : null
+  const option =
+    group && eating
+      ? pickOption(group, eating)
+      : null
 
   return (
     <Sheet
-      open={Boolean(highlight)}
-      title={label}
-      subtitle={isWarn ? '这份食物需要注意的地方' : '它有什么用，对你现在的目标有什么帮助'}
+      open={Boolean(info)}
+      title={group ? GROUP_LABEL[group] : ''}
+      subtitle="这一组是什么，常见的有哪些"
       onClose={hideHighlight}
     >
       {info && (
@@ -28,36 +31,19 @@ export function HighlightSheet() {
             <div className="text-[11px] text-muted">是什么</div>
             <div className="mt-1 text-[13px] leading-5">{info.what}</div>
           </div>
-
           <div className="rounded-2xl bg-surface2/50 p-3.5">
-            <div className="text-[11px] text-muted">{isWarn ? '参考上限' : '含量参考'}</div>
-            <div className="mt-1 text-[13px] leading-5">{info.amount}</div>
+            <div className="text-[11px] text-muted">常见来源</div>
+            <div className="mt-1 text-[13px] leading-5">{info.sources}</div>
           </div>
-
-          <div
-            className={
-              'rounded-2xl border p-3.5 ' +
-              (isWarn ? 'border-[#ff6b81]/30 bg-[#ff6b81]/10' : 'border-accent/30 bg-accent/10')
-            }
-          >
-            <div className={'text-[11px] ' + (isWarn ? 'text-[#ff8a9b]' : 'text-accent/80')}>
-              对你现在的目标（{GOAL_LABEL[goalType]}）
-            </div>
-            <div className="mt-1 text-[13px] leading-5 text-ink">{info.benefit[goalType]}</div>
-          </div>
-
-          {isWarn && action && (
+          {option && (
             <div className="rounded-2xl bg-surface2/50 p-3.5">
-              <div className="text-[11px] text-muted">下一餐怎么改</div>
-              <div className="mt-1 text-[13px] leading-5">{action}</div>
+              <div className="text-[11px] text-muted">如果顺手，可以这样做</div>
+              <div className="mt-1 text-[13px] leading-5">{option.text}</div>
             </div>
           )}
-
-          {isWarn && (
-            <p className="px-1 text-[10px] leading-4 text-muted/50">
-              钠、添加糖为估算值，用于提示强弱，不等于包装上的营养成分表。单餐吃重了不用自责，一天的总量更重要；有明确疾病请遵医嘱。
-            </p>
-          )}
+          <p className="px-1 text-[10px] leading-4 text-muted/50">
+            这只是食物组的知识说明，不是对你这一餐的评价；做不做都不影响记录。
+          </p>
         </div>
       )}
     </Sheet>

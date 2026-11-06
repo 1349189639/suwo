@@ -2,7 +2,11 @@ import type {
   AppData,
   AvatarAction,
   CareTag,
+  Cohort,
   Consent,
+  DietGroup,
+  EatingContext,
+  EatingProfile,
   ExerciseLog,
   FoodCategory,
   FoodItem,
@@ -10,10 +14,12 @@ import type {
   Goal,
   Intensity,
   LoadMode,
+  LogSource,
   Profile,
   WeightEntry,
 } from '../domain/types'
 import { CARE_IDS } from '../domain/care'
+import { DEFAULT_EATING_PROFILE } from '../domain/types'
 import { FOOD_CATEGORY_LABEL } from '../domain/types'
 import { normalizeLook } from '../domain/look'
 
@@ -45,7 +51,7 @@ export function emptyData(): AppData {
 }
 
 /** 当前数据结构版本；新增字段时 +1 */
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 function num(v: unknown, fallback = 0): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback
@@ -141,6 +147,10 @@ export function normalize(input: unknown): AppData {
           water: typeof l.water === 'number' ? l.water : undefined,
           cost: typeof l.cost === 'number' ? l.cost : undefined,
           foodId: typeof l.foodId === 'string' ? l.foodId : undefined,
+          // v3：场景 / 来源 / 食物组快照（老数据留空，不猜测）
+          context: typeof l.context === 'string' ? (l.context as EatingContext) : undefined,
+          source: typeof l.source === 'string' ? (l.source as LogSource) : undefined,
+          groups: Array.isArray(l.groups) ? (l.groups as DietGroup[]) : undefined,
           createdAt: num(l.createdAt, Date.now()),
         }))
     : []
@@ -190,6 +200,9 @@ export function normalize(input: unknown): AppData {
             f: num(obj(f.per100).f),
             fiber: typeof obj(f.per100).fiber === 'number' ? (obj(f.per100).fiber as number) : undefined,
             water: typeof obj(f.per100).water === 'number' ? (obj(f.per100).water as number) : undefined,
+            sodium: typeof obj(f.per100).sodium === 'number' ? (obj(f.per100).sodium as number) : undefined,
+            sugar: typeof obj(f.per100).sugar === 'number' ? (obj(f.per100).sugar as number) : undefined,
+            vitd: typeof obj(f.per100).vitd === 'number' ? (obj(f.per100).vitd as number) : undefined,
           },
           defaultGrams: num(f.defaultGrams, 100),
           unit: typeof f.unit === 'string' ? f.unit : undefined,
@@ -274,7 +287,29 @@ export function normalize(input: unknown): AppData {
     createdAt: str(src.createdAt, base.createdAt),
     schemaVersion: Math.max(1, num(src.schemaVersion, base.schemaVersion ?? 1)),
     consent,
+    eating: normalizeEating(src.eating),
   } as AppData
+}
+
+/** v3 场景画像：缺字段一律用中性默认，不猜测用户身份 */
+function normalizeEating(input: unknown): EatingProfile {
+  const raw = obj(input)
+  const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
+    typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : fallback
+  return {
+    cohort: pick<Cohort>(raw.cohort, ['student', 'worker', 'other'], DEFAULT_EATING_PROFILE.cohort),
+    mainContext: pick<EatingContext>(
+      raw.mainContext,
+      ['canteen', 'delivery', 'convenience', 'home', 'restaurant', 'dorm', 'other'],
+      DEFAULT_EATING_PROFILE.mainContext,
+    ),
+    budgetLevel: pick(raw.budgetLevel, ['tight', 'normal', 'flexible'], DEFAULT_EATING_PROFILE.budgetLevel),
+    hasKitchen: typeof raw.hasKitchen === 'boolean' ? raw.hasKitchen : DEFAULT_EATING_PROFILE.hasKitchen,
+    schedule: pick(raw.schedule, ['regular', 'shift', 'irregular'], DEFAULT_EATING_PROFILE.schedule),
+    avoid: Array.isArray(raw.avoid) ? (raw.avoid as string[]) : undefined,
+    reviewEnabled: typeof raw.reviewEnabled === 'boolean' ? raw.reviewEnabled : true,
+    answeredAt: typeof raw.answeredAt === 'string' ? raw.answeredAt : undefined,
+  }
 }
 
 export function loadData(): AppData {

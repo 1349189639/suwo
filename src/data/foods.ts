@@ -1,5 +1,6 @@
 export { guessFiber, guessWater } from '../domain/water'
 import { aliasWords, canonicalOf } from '../domain/aliases'
+import { inferGroups } from '../domain/dietGroups'
 import type { FoodCategory, FoodItem } from '../domain/types'
 
 type Spec = Omit<FoodItem, 'id'>
@@ -351,6 +352,8 @@ function waterOf(f: FoodItem): number | undefined {
 export const FOODS: FoodItem[] = SPECS.map((spec, i) => ({
   ...spec,
   per100: { ...spec.per100, fiber: spec.per100.fiber ?? FIBER_BY_CATEGORY[spec.category] },
+  // v3：食物组由规则推断；没命中的保持空数组（unknown 不产生任何观察）
+  groups: inferGroups(spec.name, spec.category, spec.tags),
   id: `f${String(i + 1).padStart(3, '0')}`,
 })).map((f) => {
   const w = waterOf(f)

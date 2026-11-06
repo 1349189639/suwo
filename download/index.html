@@ -10,7 +10,8 @@
   body{margin:0;background:#f2f5f7;color:#15202b;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65}
   main{max-width:520px;margin:0 auto;padding:28px 20px 48px}
   .card{background:#fff;border-radius:20px;padding:28px 24px;box-shadow:0 8px 30px rgba(16,32,48,.08)}
-  .logo{width:52px;height:52px;border-radius:14px;background:#0a0e13;color:#7ee2a8;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin-bottom:18px}
+  .logo{width:56px;height:56px;border-radius:14px;overflow:hidden;margin-bottom:18px}
+  .logo img{width:100%;height:100%;display:block}
   h1{font-size:24px;margin:0 0 6px;letter-spacing:.5px}
   .sub{margin:0 0 24px;color:#66788a;font-size:14px}
   .btn{display:block;text-align:center;background:#0a0e13;color:#fff;text-decoration:none;padding:15px 18px;border-radius:14px;font-size:17px;font-weight:600;letter-spacing:.5px}
@@ -33,29 +34,33 @@
 <body>
 <main>
   <div class="card">
-    <div class="logo">塑</div>
+    <div class="logo"><img src="data:image/png;base64,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" alt="塑我 App 图标"></div>
     <h1>塑我 · 热量账本</h1>
     <p class="sub">记录饮食与体重，看见身体一点一点的变化</p>
 
-    <a class="btn" href="https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.3-code4.apk" download>下载 Android 安装包</a>
-    <p class="meta">版本 1.3（code 4）· 约 13.5 MB · Android</p>
+    <a class="btn" href="https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.4-code5.apk" download>下载 Android 安装包</a>
+    <p class="meta">版本 1.4（code 5）· 约 14.3 MB · Android</p>
 
     <div class="qrbox">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeoAAAHqAQMAAADxo595AAAABlBMVEUKDhP////53vqrAAADFUlEQVR42u2dS27rMAxFiXoBWlK27iV5AQLUxOJPCdCJOGjR44HhJD2ThwtSlx8/GTvXKeDg4ODg4ODg4L8JF72O5zety/Pr1/V6Gpfo7bSP83rc+JdsXeD/E1fV3Roa1zFvt/7kMZ/uP7kFp98lAtWB76juFcOmpK4c5p7i6h7rxqJJVAdeprrT0ucUl7jW/E9QHXh5rHsGN4twb6Evsi6qA688102FvQKe2QeVXv7IuQ68QnXuYWc0++GGhwUvUt1ydbGAp8c8jXVyfBZe+JcH38mwKrN40iDY1FfYxy6oDrwow7auzlV9hbgI3c1a/g2bi+rAtzJs0preQnpx9LNfD2IdeIWbsOTqRlZzbfNIGGHuonICXhDrIsLdZeHZjLWndE3p+eEO1YHvugmvF6v+bBhAn/w0h5sAr6ucaKzrM+BFIn0r2ln7AtWBb2bYls9wqVR3un2d5RPLsKgOvOZcN8IliFkKCTebHAaqA6/wsG3YfMnwIadLfa1Eu1+HPPGw4FXnOm98xXxTTNXlCsslxDrwCtV1HRlWq+oNMlOYHvgaGRa8UnXJNJwtmrF9aUYIGRa8sjehMezKQyYqrqY3Jciw4BWq8xnhKKSofXWv8bARKBUmqgPfrZz4eS31IWxHLPqw2ciiOvCKc11e2TlSNSXfRH0tGRa8JsOuzdjojdk+oqSJAGIdeEGs8yG7Ec5hcbMzwtmOLLEOvCTWWdHO3UTLS7GSdnnYEQMvqZy03O7SKp2VSpaBdqsmk2HBtz3stKqWZpPWWuRftRlMOoGX1us+Eq7+4KY1j7ujOvBNN+Fr/7oPm4c838cCIv6hOvCdWDd8PaJ5u3XkynFe+6cPC15XOUndr/H5JjtfmRWqxOAlHnZeXj5ZVsHyuxKXajKqA9/LsPGaOl/x9yGT83N5B9WBF3hYSXvWUZFb3uRkwwBUicFrVZdfOxE7irbBE2s8xDrwyljXfEdM8rbOEv+EKjF44bluqZfchZSe3qkTO4rEOvA6D5t+yUuJvqMT72VHdeB7quM/iAEHBwcHBwcH/+v4NxsR0SkD7952AAAAAElFTkSuQmCC" alt="扫码下载塑我 App">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeoAAAHqAQMAAADxo595AAAABlBMVEUKDhP////53vqrAAADDUlEQVR42u2dS66cMBBFS2EBLImtsyQWgOTQdv1MokxcLSXKYYCaps8bRFf1L0faynUKODg4ODg4ODj434SLXluT4xL9k+d+P189N/3J5/HzdlxH/8kPWbrA/09cJdU11K5tfFLpPY/PdYu+6I/jOyNQHfiK6j42LHT1MXPPTcWlvzMlqk1EdeBVquuSMqunHnbITLoIUR34l23dnd3sOeI6VAdeHtcNR9qd6zBzu+Ydlk0Q14FXqS7nsH++kcOCF6kurqQ/daReOXG/mgov/MuDr8V17UyPn+Cuv/fgrj8eFvVh68ALbF3OF0x/XVxer2tWJR43VAe+qLrT/OrzycO33V/snj6I14tRHfiq6na1a0Nho2jX7t/X8DzWQ3XgBZWT3H3Q3sRk9fp3avBQHfhyNqHdhyjVTb721h+foiU9VAe+rLpRDB7SuyUnF830l2ZOyGHBazysau3VgtBs9vLK3TBzqA68xMNqvc4mnbbU6Z+k1xqqA6/riEX6MJKG9ioVWzNWZ+5QHfhi5aRN1d/x5ohZTjduKeFFdeDLqpu7D9Z4tX6FSP4kVInBi3LYJK7ZkaYu2SnM14GX9mHdkYbqUubQxpDTZv4X1YEvqs7dZ/S8Il9Nk07RpcDDgq+rzkvF9hjD6+J92AjpsHXgBR62peH12BGztqxXUxq2DryyN6EzJ5EqvLZ1rJpC9x+8zsNOs0wW0p22jxjZBLPE4FW9iViK8Gzi+tUcyrSejerAl7OJI20mhupeA+1RV0F14BXZhEsqFVLcuR7XNu3NojrwgmwilifecV2/jlS0w9aBl9g6s3CxCjveXjn0yzuKqA58Oa7zzZy5yZ+Kdvt8RgCqAy+L69yvmukTiX1Ec73ksOAllRO3YdMqohWI8+4/cR34d87qbHGc0y1MsIN/R3VeJekKS3Xgee1/ZLMXfVjwStWlQM4P1ol6cSqfYOvAC1Xn2Wwe6Iwhp1uonICXn9U5RW5ptD2OPeGcE/DiHFZke0+rx8xTnF+H6sBXVcd/EAMODg4ODg4O/q/jPwGAQOKWZSbo/QAAAABJRU5ErkJggg==" alt="扫码下载塑我 App">
       <p>手机扫码下载<br>建议用系统相机或浏览器扫码</p>
     </div>
 
     <h2>安装步骤</h2>
     <ol>
-      <li>点上方按钮或扫码，下载 <code>suwo-v1.3-code4.apk</code></li>
+      <li>点上方按钮或扫码，下载 <code>suwo-v1.4-code5.apk</code></li>
       <li>打开下载好的文件，系统提示时允许「安装未知应用」</li>
       <li>装好打开 App，用手机号验证码注册即可，不需要联系管理员</li>
     </ol>
 
+    <div class="note">
+      <strong>本次更新（v1.4）：</strong>换了全新 App 图标、更新《隐私政策》（为将来可能的付费功能与广告预留说明，同时明确健康数据永不用于广告、安全标准不降低）。桌面图标属于安装包的一部分，<strong>装一次新版才会变</strong>；老用户打开 App 也会看到同样的更新公告和「下载最新版」按钮。
+    </div>
+
     <div class="warn">
-      <strong>已装过旧版（1.2 / code3）的用户请注意：</strong>本版换成正式签名，<strong>不能直接覆盖安装</strong>。
-      请先在旧版 App 的「我的 → 同步」确认数据已上云，再卸载旧版，然后安装本页的新包；
-      用同一手机号重新登录后数据会自动恢复。App 内「检查更新」也会给出同样引导。首次安装的用户不用管这条。
+      <strong>怎么装：</strong>已装 1.3（code4）的朋友<strong>直接覆盖安装即可</strong>，不用卸载、数据不丢。
+      只有还在用 1.2 / code3 及更旧版本的朋友，因为当初换过正式签名，才需要「旧版我的 → 同步 → 卸载旧版 → 装本页新包 → 同手机号登录」，数据会自动恢复。
+      第一次安装的朋友直接装就行。
     </div>
 
     <div class="warn">
@@ -66,9 +71,8 @@
       安装后 App 会自动连接线上服务，功能更新无需重新安装。后续如有新版本，App 内会提示并引导更新。
     </div>
 
-    <!-- 隐私政策正文已随 suwo-047（2026-11-05 23:57）上线，运营者徐荣泽 / 邮箱 1349189639@qq.com / 存储地中国上海。
-         如需对外展示，可在此加入公开政策页链接（当前仅在 App 内注册页勾选处展示） -->
-    <p class="raw">直链：https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.3-code4.apk</p>
+    <!-- 隐私政策正文见隐私政策页；App 内注册页与国内版落地页为同一份全文（2026-11-06 已更新为 8 节） -->
+    <p class="raw">直链：https://suwo-suwo-fitnessapp-d7fn2a359e4760f8.webapps.tcloudbase.com/release/suwo-v1.4-code5.apk</p>
     <footer><a href="privacy.html">隐私政策</a> · 塑我 · 热量账本 · 个人项目</footer>
   </div>
 </main>
